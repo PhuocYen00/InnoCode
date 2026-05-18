@@ -94,4 +94,3 @@ $otherCourses = array_reverse(array_slice($allCourses, 0, 8));
 
 <?php require_once dirname(__DIR__) . '/includes/footer.php'; ?>
 
-

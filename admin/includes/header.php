@@ -19,6 +19,10 @@ require_admin();
             <a class="nav-link" href="<?= APP_URL ?>/admin/courses.php">Khóa học</a>
             <a class="nav-link" href="<?= APP_URL ?>/admin/orders.php">Đơn hàng</a>
             <a class="nav-link" href="<?= APP_URL ?>/admin/users.php">Học viên</a>
+            <a class="nav-link" href="<?= APP_URL ?>/admin/coupons.php">Coupon</a>
+            <a class="nav-link" href="<?= APP_URL ?>/admin/questions.php">Hỏi đáp</a>
+            <a class="nav-link" href="<?= APP_URL ?>/admin/quizzes.php">Quiz</a>
+            <a class="nav-link" href="<?= APP_URL ?>/admin/quiz_attempts.php">Bài làm</a>
             <a class="nav-link" href="<?= url('home') ?>">Xem website</a>
             <a class="nav-link" href="<?= APP_URL ?>/admin/logout.php">Đăng xuất</a>
         </div>
@@ -31,4 +35,3 @@ require_admin();
 <?php if ($message = flash('error')): ?>
     <div class="alert alert-danger"><?= e($message) ?></div>
 <?php endif; ?>
-

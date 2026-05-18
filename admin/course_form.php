@@ -9,12 +9,12 @@ $categories = all_categories();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data = [
         'category_id' => (int) ($_POST['category_id'] ?? 0),
-        'title' => trim($_POST['title'] ?? ''),
-        'description' => trim($_POST['description'] ?? ''),
+        'title' => trim((string) ($_POST['title'] ?? '')),
+        'description' => trim((string) ($_POST['description'] ?? '')),
         'price' => (float) ($_POST['price'] ?? 0),
-        'level' => trim($_POST['level'] ?? ''),
+        'level' => trim((string) ($_POST['level'] ?? '')),
         'duration_hours' => (int) ($_POST['duration_hours'] ?? 0),
-        'image_url' => trim($_POST['image_url'] ?? ''),
+        'image_url' => trim((string) ($_POST['image_url'] ?? '')),
         'is_active' => isset($_POST['is_active']) ? 1 : 0,
     ];
 
@@ -31,7 +31,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $stmt = db()->prepare('INSERT INTO courses (category_id, title, description, price, level, duration_hours, image_url, is_active) VALUES (:category_id, :title, :description, :price, :level, :duration_hours, :image_url, :is_active)');
         $stmt->execute($data);
-        flash('success', 'Đã thêm khóa học.');
+        $id = (int) db()->lastInsertId();
+        flash('success', 'Đã thêm khóa học. Bạn có thể thêm chương và bài học ngay.');
+        redirect('admin/course_content.php?id=' . $id);
     }
 
     redirect('admin/courses.php');
@@ -91,5 +93,3 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </form>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
-
-

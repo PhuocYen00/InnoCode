@@ -13,6 +13,10 @@ if (!$order || (int) $order['user_id'] !== (int) current_user()['id']) {
 $items = order_items($orderId);
 $pageTitle = 'Biên lai #' . $orderId . ' - ' . APP_NAME;
 $paymentName = payment_methods()[$order['payment_method']] ?? $order['payment_method'];
+$subtotal = array_sum(array_map(static fn (array $item): float => (float) $item['price'] * (int) $item['quantity'], $items));
+$discount = (float) ($order['discount_amount'] ?? 0);
+$total = (float) $order['total_amount'];
+$couponCode = (string) ($order['coupon_code'] ?? '');
 ?>
 <!doctype html>
 <html lang="vi">
@@ -126,14 +130,31 @@ $paymentName = payment_methods()[$order['payment_method']] ?? $order['payment_me
             text-align: right;
         }
 
-        .total {
-            font-size: 22px;
-            font-weight: 800;
+        .summary {
+            margin-left: auto;
             margin-top: 22px;
-            text-align: right;
+            max-width: 330px;
         }
 
-        .total span {
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+        }
+
+        .summary-row.discount {
+            color: #16a34a;
+        }
+
+        .summary-row.total {
+            border-top: 1px solid #e5e7eb;
+            font-size: 22px;
+            font-weight: 800;
+            margin-top: 8px;
+            padding-top: 12px;
+        }
+
+        .summary-row.total span:last-child {
             color: #ef4444;
         }
 
@@ -187,7 +208,7 @@ $paymentName = payment_methods()[$order['payment_method']] ?? $order['payment_me
 <main class="receipt">
     <header class="receipt-head">
         <div class="brand">
-            <img class="receipt-logo" src="<?= APP_URL ?>/assets/images/innocode.jpg" alt="<?= e(APP_NAME) ?>" width="120" height="54" style="width:120px;height:54px;object-fit:contain;display:block;">
+            <img class="receipt-logo" src="<?= APP_URL ?>/assets/images/innocode.jpg" alt="<?= e(APP_NAME) ?>">
             <div>
                 <strong><?= e(APP_NAME) ?></strong>
                 <small>Website khóa học lập trình</small>
@@ -239,11 +260,24 @@ $paymentName = payment_methods()[$order['payment_method']] ?? $order['payment_me
         </tbody>
     </table>
 
-    <div class="total">Tổng cộng: <span><?= money((float) $order['total_amount']) ?></span></div>
+    <div class="summary">
+        <div class="summary-row">
+            <span>Tạm tính</span>
+            <strong><?= money($subtotal) ?></strong>
+        </div>
+        <?php if ($discount > 0): ?>
+            <div class="summary-row discount">
+                <span>Giảm giá<?= $couponCode !== '' ? ' (' . e($couponCode) . ')' : '' ?></span>
+                <strong>-<?= money($discount) ?></strong>
+            </div>
+        <?php endif; ?>
+        <div class="summary-row total">
+            <span>Tổng cộng</span>
+            <span><?= money($total) ?></span>
+        </div>
+    </div>
 
     <p class="note">Biên lai được tạo tự động bởi hệ thống <?= e(APP_NAME) ?>. Vui lòng lưu lại để đối chiếu khi cần.</p>
 </main>
 </body>
 </html>
-
-

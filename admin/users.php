@@ -45,4 +45,3 @@ $users = db()->query('SELECT users.*, COUNT(DISTINCT enrollments.course_id) AS c
 </div>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
-

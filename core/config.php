@@ -30,6 +30,11 @@ const MOMO_ACCESS_KEY = '';
 const MOMO_SECRET_KEY = '';
 const MOMO_ENDPOINT = 'https://test-payment.momo.vn/v2/gateway/api/create';
 
+const PAYOS_CLIENT_ID = 'dd9a54cf-c6a4-49d9-bf49-a7b1000becb7';
+const PAYOS_API_KEY = '6c806a0b-8bef-4fd1-a1c1-9775a5b21be2';
+const PAYOS_CHECKSUM_KEY = '8af5ecf3f4a7a2da35f6f88dbd9ca9de2efea81d4bcbb7e26cb7a00562353885';
+const PAYOS_API_URL = 'https://api-merchant.payos.vn/v2/payment-requests';
+
 const SMTP_HOST = 'smtp.gmail.com';
 const SMTP_PORT = 587;
 const SMTP_USERNAME = 'phuocyen.281004@gmail.com';

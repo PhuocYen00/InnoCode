@@ -592,7 +592,7 @@ a {
     box-shadow: 0 14px 32px rgba(15, 23, 42, .07);
     display: grid;
     gap: 32px;
-    grid-template-columns: minmax(0, 1fr) 320px;
+    grid-template-columns: 1fr;
     padding: 36px;
 }
 
@@ -666,8 +666,26 @@ a {
 }
 
 .learning-info {
+    background: #fff;
+    border-radius: 8px;
     margin-top: 18px;
-    padding: 22px;
+    padding: 26px;
+}
+
+.lesson-titlebar {
+    align-items: flex-start;
+    display: flex;
+    gap: 18px;
+    justify-content: space-between;
+    margin-bottom: 18px;
+}
+
+.lesson-title-actions {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: flex-end;
 }
 
 .learning-info h1 {
@@ -722,6 +740,179 @@ a {
 .learn-lesson:hover {
     background: rgba(37, 99, 235, .09);
     color: var(--brand);
+}
+
+.learn-lesson.locked {
+    color: #9ca3af;
+    cursor: not-allowed;
+}
+
+.lesson-card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, .05);
+    padding: 20px;
+}
+
+.note-card {
+    background: linear-gradient(180deg, #ffffff, #f8fbff);
+}
+
+.lesson-card-head {
+    align-items: flex-start;
+    display: flex;
+    gap: 18px;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+
+.lesson-card-head div {
+    align-items: center;
+    display: flex;
+    gap: 10px;
+}
+
+.lesson-card-head h2 {
+    color: #0f172a;
+    font-size: 18px;
+    font-weight: 850;
+    margin: 0;
+}
+
+.lesson-card-head small {
+    color: var(--muted);
+    max-width: 320px;
+    text-align: right;
+}
+
+.lesson-icon {
+    align-items: center;
+    background: rgba(37, 99, 235, .1);
+    border-radius: 8px;
+    color: var(--brand);
+    display: inline-flex;
+    font-size: 16px;
+    font-weight: 850;
+    height: 34px;
+    justify-content: center;
+    width: 34px;
+}
+
+.note-textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+
+.lesson-action-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.lesson-tool-grid {
+    display: grid;
+    gap: 18px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 20px;
+}
+
+.compiler-card {
+    grid-row: span 2;
+}
+
+.material-list {
+    display: grid;
+    gap: 10px;
+}
+
+.material-item {
+    align-items: center;
+    background: #f8fafc;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: #0f172a;
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 14px;
+}
+
+.material-item:hover {
+    border-color: var(--brand);
+    color: var(--brand);
+}
+
+.material-item small {
+    background: rgba(22, 163, 74, .12);
+    border-radius: 999px;
+    color: #15803d;
+    font-weight: 800;
+    padding: 4px 8px;
+}
+
+.empty-note {
+    background: #f8fafc;
+    border: 1px dashed var(--line);
+    border-radius: 8px;
+    color: var(--muted);
+    margin: 0;
+    padding: 12px;
+}
+
+.practice-submit {
+    align-items: stretch;
+    display: grid;
+    gap: 10px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    margin-top: 14px;
+}
+
+.compiler-hint {
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    border-radius: 8px;
+    color: #075985;
+    font-size: 14px;
+    margin-bottom: 14px;
+    padding: 10px 12px;
+}
+
+.code-area,
+.compiler-output {
+    font-family: Consolas, Monaco, monospace;
+}
+
+.compiler-output {
+    background: #111827;
+    border-radius: 8px;
+    color: #bbf7d0;
+    margin: 14px 0 0;
+    min-height: 52px;
+    padding: 14px;
+    white-space: pre-wrap;
+}
+
+.question-item,
+.review-item {
+    border-top: 1px solid var(--line);
+    margin-top: 14px;
+    padding-top: 14px;
+}
+
+.question-item p,
+.review-item p {
+    margin: 6px 0;
+}
+
+.answer-box {
+    background: rgba(34, 197, 94, .12);
+    border-left: 3px solid #22c55e;
+    border-radius: 6px;
+    color: #166534;
+    display: block;
+    margin-top: 8px;
+    padding: 8px 10px;
 }
 
 .admin-shell {
@@ -789,6 +980,14 @@ footer .text-muted {
     .learning-sidebar {
         max-height: none;
     }
+
+    .lesson-tool-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .compiler-card {
+        grid-row: auto;
+    }
 }
 
 @media (max-width: 575px) {
@@ -807,6 +1006,29 @@ footer .text-muted {
 
     .learning-video {
         padding: 14px;
+    }
+
+    .learning-info {
+        padding: 16px;
+    }
+
+    .lesson-titlebar,
+    .lesson-card-head {
+        display: grid;
+    }
+
+    .lesson-title-actions {
+        justify-content: flex-start;
+    }
+
+    .lesson-card-head small {
+        max-width: none;
+        text-align: left;
+    }
+
+    .lesson-tool-grid,
+    .practice-submit {
+        grid-template-columns: 1fr;
     }
 }
 

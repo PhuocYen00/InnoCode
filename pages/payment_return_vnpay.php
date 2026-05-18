@@ -16,12 +16,9 @@ $orderId = (int) ($params['vnp_TxnRef'] ?? 0);
 $responseCode = $params['vnp_ResponseCode'] ?? '';
 
 if ($valid && $responseCode === '00') {
-    complete_order($orderId);
-    flash('success', 'VNPay xác nhận thanh toán thành công.');
+    flash('success', 'VNPay đã ghi nhận giao dịch. Đơn hàng đang chờ admin xác nhận để mở khóa học.');
 } else {
     flash('error', 'Thanh toán VNPay chưa thành công hoặc chữ ký không hợp lệ.');
 }
 
 redirect('payment_success.php?id=' . $orderId);
-
-

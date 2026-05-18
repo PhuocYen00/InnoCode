@@ -20,11 +20,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$orders = db()->query('SELECT orders.*, users.name AS user_name FROM orders LEFT JOIN users ON users.id = orders.user_id ORDER BY orders.created_at DESC')->fetchAll();
+$status = (string) ($_GET['status'] ?? '');
+$params = [];
+$sql = 'SELECT orders.*, users.name AS user_name FROM orders LEFT JOIN users ON users.id = orders.user_id';
+
+if ($status !== '') {
+    $sql .= ' WHERE orders.status = ?';
+    $params[] = $status;
+}
+
+$sql .= ' ORDER BY orders.created_at DESC';
+$stmt = db()->prepare($sql);
+$stmt->execute($params);
+$orders = $stmt->fetchAll();
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h2 mb-0">Quản lý đơn hàng</h1>
+    <div class="btn-group">
+        <a class="btn btn-outline-primary <?= $status === '' ? 'active' : '' ?>" href="<?= APP_URL ?>/admin/orders.php">Tất cả</a>
+        <a class="btn btn-outline-primary <?= $status === 'pending' ? 'active' : '' ?>" href="<?= APP_URL ?>/admin/orders.php?status=pending">Pending</a>
+        <a class="btn btn-outline-primary <?= $status === 'paid' ? 'active' : '' ?>" href="<?= APP_URL ?>/admin/orders.php?status=paid">Paid</a>
+        <a class="btn btn-outline-primary <?= $status === 'cancelled' ? 'active' : '' ?>" href="<?= APP_URL ?>/admin/orders.php?status=cancelled">Cancelled</a>
+    </div>
 </div>
 
 <div class="bg-white rounded-2 shadow-sm table-responsive">
@@ -34,6 +52,7 @@ $orders = db()->query('SELECT orders.*, users.name AS user_name FROM orders LEFT
             <th>Mã đơn</th>
             <th>Học viên</th>
             <th>Thanh toán</th>
+            <th>Coupon</th>
             <th>Trạng thái</th>
             <th>Tổng</th>
             <th>Ngày tạo</th>
@@ -43,10 +62,22 @@ $orders = db()->query('SELECT orders.*, users.name AS user_name FROM orders LEFT
         <tbody>
         <?php foreach ($orders as $order): ?>
             <tr>
-                <td>#<?= (int) $order['id'] ?><br><small class="text-muted"><?= e($order['payment_code']) ?></small></td>
+                <td>
+                    #<?= (int) $order['id'] ?><br>
+                    <small class="text-muted"><?= e($order['payment_code']) ?></small>
+                    <?php if (!empty($order['payos_order_code'])): ?>
+                        <br><small class="text-muted">PayOS: <?= e($order['payos_order_code']) ?></small>
+                    <?php endif; ?>
+                </td>
                 <td><?= e($order['customer_name']) ?><br><small class="text-muted"><?= e($order['customer_email']) ?></small></td>
                 <td><?= e(payment_methods()[$order['payment_method']] ?? $order['payment_method']) ?></td>
-                <td><?= e($order['status']) ?></td>
+                <td>
+                    <?= e($order['coupon_code'] ?: '-') ?>
+                    <?php if ((float) $order['discount_amount'] > 0): ?>
+                        <br><small class="text-success">-<?= money((float) $order['discount_amount']) ?></small>
+                    <?php endif; ?>
+                </td>
+                <td><span class="badge bg-<?= $order['status'] === 'paid' ? 'success' : ($order['status'] === 'pending' ? 'warning text-dark' : 'secondary') ?>"><?= e($order['status']) ?></span></td>
                 <td><?= money((float) $order['total_amount']) ?></td>
                 <td><?= e($order['created_at']) ?></td>
                 <td class="text-end">
@@ -62,11 +93,10 @@ $orders = db()->query('SELECT orders.*, users.name AS user_name FROM orders LEFT
             </tr>
         <?php endforeach; ?>
         <?php if (!$orders): ?>
-            <tr><td colspan="7" class="text-muted">Chưa có đơn hàng.</td></tr>
+            <tr><td colspan="8" class="text-muted">Chưa có đơn hàng.</td></tr>
         <?php endif; ?>
         </tbody>
     </table>
 </div>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
-
