@@ -5,9 +5,9 @@ declare(strict_types=1);
 function payment_methods(): array
 {
     return [
-        'vnpay' => 'VNPay',
-        'momo' => 'MoMo',
-        'bank' => 'Chuyển khoản ngân hàng',
+        'bank' => 'Chuyển khoản VietQR qua PayOS',
+        'vnpay' => 'VNPay qua PayOS',
+        'momo' => 'MoMo qua PayOS',
     ];
 }
 
@@ -24,19 +24,22 @@ function find_order(int $id): ?array
     return $order ?: null;
 }
 
+function find_order_by_payos_code(int $orderCode): ?array
+{
+    $stmt = db()->prepare('SELECT * FROM orders WHERE payos_order_code = ?');
+    $stmt->execute([$orderCode]);
+    $order = $stmt->fetch();
+
+    return $order ?: null;
+}
+
 function payment_qr_url(string $method, int $orderId, float $amount): ?string
 {
     $content = order_payment_code($orderId);
 
-    if ($method === 'bank' || ($method === 'vnpay' && VNPAY_TMN_CODE === '') || ($method === 'momo' && MOMO_PARTNER_CODE === '')) {
-        return 'https://img.vietqr.io/image/' . BANK_CODE . '-' . BANK_ACCOUNT_NUMBER . '-compact2.png?amount=' . (int) $amount
-            . '&addInfo=' . urlencode($content)
-            . '&accountName=' . urlencode(BANK_ACCOUNT_NAME);
-    }
-
-    $text = payment_methods()[$method] . ' | Don hang ' . $content . ' | So tien ' . money($amount);
-
-    return 'https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=' . urlencode($text);
+    return 'https://img.vietqr.io/image/' . BANK_CODE . '-' . BANK_ACCOUNT_NUMBER . '-compact2.png?amount=' . (int) $amount
+        . '&addInfo=' . urlencode($content)
+        . '&accountName=' . urlencode(BANK_ACCOUNT_NAME);
 }
 
 function course_video_map(): array
@@ -92,4 +95,3 @@ function course_video_map(): array
         ],
     ];
 }
-

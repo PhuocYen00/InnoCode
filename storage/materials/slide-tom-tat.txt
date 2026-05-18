@@ -1,0 +1,6 @@
+InnoCode - Slide tóm tắt
+
+1. PHP chạy phía server và trả HTML về trình duyệt.
+2. Form POST dùng để gửi dữ liệu người dùng.
+3. PDO giúp kết nối MySQL an toàn hơn khi dùng prepared statement.
+4. Luồng thanh toán thực tế cần đơn hàng, trạng thái, webhook và quyền học.

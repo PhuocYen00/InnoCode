@@ -4,8 +4,6 @@ require_login();
 require_verified_email();
 
 $pageTitle = 'Thanh toán - ' . APP_NAME;
-require_once dirname(__DIR__) . '/includes/header.php';
-
 $user = current_user();
 $items = cart_items();
 
@@ -14,12 +12,17 @@ if (!$items) {
     redirect('courses.php');
 }
 
+$subtotal = cart_total($items);
+$coupon = cart_coupon();
+$discount = cart_discount($subtotal);
+$total = max(0, $subtotal - $discount);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $customerName = trim($_POST['customer_name'] ?? '');
-    $customerEmail = trim($_POST['customer_email'] ?? '');
-    $customerPhone = trim($_POST['customer_phone'] ?? '');
-    $paymentMethod = $_POST['payment_method'] ?? 'bank';
-    $note = trim($_POST['note'] ?? '');
+    $customerName = trim((string) ($_POST['customer_name'] ?? ''));
+    $customerEmail = trim((string) ($_POST['customer_email'] ?? ''));
+    $customerPhone = trim((string) ($_POST['customer_phone'] ?? ''));
+    $paymentMethod = (string) ($_POST['payment_method'] ?? 'bank');
+    $note = trim((string) ($_POST['note'] ?? ''));
 
     if ($customerName === '' || !filter_var($customerEmail, FILTER_VALIDATE_EMAIL) || $customerPhone === '') {
         flash('error', 'Vui lòng nhập đầy đủ họ tên, email và số điện thoại.');
@@ -34,9 +37,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $pdo->beginTransaction();
 
     try {
-        $total = cart_total($items);
-        $stmt = $pdo->prepare('INSERT INTO orders (user_id, customer_name, customer_email, customer_phone, note, total_amount, payment_method, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
-        $stmt->execute([(int) $user['id'], $customerName, $customerEmail, $customerPhone, $note, $total, $paymentMethod, 'pending']);
+        $stmt = $pdo->prepare('INSERT INTO orders (user_id, customer_name, customer_email, customer_phone, note, total_amount, coupon_code, discount_amount, payment_method, payment_provider, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+        $stmt->execute([
+            (int) $user['id'],
+            $customerName,
+            $customerEmail,
+            $customerPhone,
+            $note,
+            $total,
+            $coupon['code'] ?? null,
+            $discount,
+            $paymentMethod,
+            'payos',
+            'pending',
+        ]);
         $orderId = (int) $pdo->lastInsertId();
 
         foreach ($items as $item) {
@@ -44,24 +58,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$orderId, $item['id'], $item['price'], $item['quantity']]);
         }
 
-        $stmt = $pdo->prepare('UPDATE orders SET payment_code = ? WHERE id = ?');
-        $stmt->execute([order_payment_code($orderId), $orderId]);
+        $stmt = $pdo->prepare('UPDATE orders SET payment_code = ?, payos_order_code = ? WHERE id = ?');
+        $stmt->execute([order_payment_code($orderId), payos_order_code($orderId), $orderId]);
 
         clear_cart((int) $user['id']);
+        unset($_SESSION['coupon_code']);
         $pdo->commit();
 
+        if ($total <= 0) {
+            complete_order($orderId);
+            flash('success', 'Đơn hàng đã được kích hoạt do tổng thanh toán bằng 0đ.');
+            redirect('my_courses.php');
+        }
+
         $order = find_order($orderId);
+        $checkoutUrl = $order ? payos_create_payment_link($order, $items) : null;
 
-        if ($paymentMethod === 'vnpay' && ($url = vnpay_payment_url($order))) {
-            header('Location: ' . $url);
+        if ($checkoutUrl) {
+            header('Location: ' . $checkoutUrl);
             exit;
         }
 
-        if ($paymentMethod === 'momo' && ($url = momo_payment_url($order))) {
-            header('Location: ' . $url);
-            exit;
-        }
-
+        flash('error', 'Chưa tạo được link PayOS. Hệ thống hiển thị thông tin chuyển khoản VietQR để bạn thanh toán và chờ xác nhận.');
         redirect('payment_success.php?id=' . $orderId);
     } catch (Throwable $exception) {
         $pdo->rollBack();
@@ -69,6 +87,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('checkout.php');
     }
 }
+
+require_once dirname(__DIR__) . '/includes/header.php';
 ?>
 
 <section class="container py-5">
@@ -98,13 +118,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </label>
                         <?php endforeach; ?>
                     </div>
-                    <p class="text-muted small mt-2 mb-0">VNPay/MoMo sẽ chuyển sang cổng thật khi bạn điền mã merchant trong <code>core/config.php</code>; nếu chưa cấu hình, hệ thống hiển thị QR thanh toán để test đồ án.</p>
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Ghi chú</label>
                     <textarea class="form-control" name="note" rows="4"></textarea>
                 </div>
-                <button class="btn btn-primary btn-lg" type="submit">Tạo đơn thanh toán</button>
+                <button class="btn btn-primary btn-lg" type="submit">Tạo đơn và thanh toán</button>
             </form>
         </div>
 
@@ -117,9 +136,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <strong><?= money($item['line_total']) ?></strong>
                     </div>
                 <?php endforeach; ?>
+                <div class="d-flex justify-content-between pt-3">
+                    <span>Tạm tính</span>
+                    <strong><?= money($subtotal) ?></strong>
+                </div>
+                <div class="d-flex justify-content-between pt-2">
+                    <span>Giảm giá<?= $coupon ? ' (' . e($coupon['code']) . ')' : '' ?></span>
+                    <strong class="text-success">-<?= money($discount) ?></strong>
+                </div>
                 <div class="d-flex justify-content-between h4 pt-3">
                     <span>Tổng</span>
-                    <span class="price"><?= money(cart_total($items)) ?></span>
+                    <span class="price"><?= money($total) ?></span>
                 </div>
             </div>
         </div>
@@ -127,5 +154,3 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </section>
 
 <?php require_once dirname(__DIR__) . '/includes/footer.php'; ?>
-
-

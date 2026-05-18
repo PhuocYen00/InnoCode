@@ -218,9 +218,67 @@ function ensure_schema(): void
     ensure_column('orders', 'payment_code', 'VARCHAR(80) NULL AFTER payment_method');
     ensure_column('orders', 'coupon_code', 'VARCHAR(60) NULL AFTER total_amount');
     ensure_column('orders', 'discount_amount', 'DECIMAL(12,2) NOT NULL DEFAULT 0 AFTER coupon_code');
+    ensure_column('orders', 'payment_provider', "VARCHAR(40) NOT NULL DEFAULT 'payos' AFTER payment_method");
+    ensure_column('orders', 'payos_order_code', 'BIGINT UNSIGNED NULL AFTER payment_code');
+    ensure_column('orders', 'payos_payment_link_id', 'VARCHAR(120) NULL AFTER payos_order_code');
+    ensure_column('orders', 'payos_checkout_url', 'VARCHAR(500) NULL AFTER payos_payment_link_id');
     ensure_column('orders', 'paid_at', 'DATETIME NULL AFTER status');
     ensure_column('orders', 'updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
     ensure_index('orders', 'idx_orders_user', 'user_id');
+    ensure_column('course_questions', 'lesson_index', 'INT UNSIGNED NULL AFTER lesson_id');
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS course_lesson_progress (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        user_id INT UNSIGNED NOT NULL,
+        course_id INT UNSIGNED NOT NULL,
+        lesson_index INT UNSIGNED NOT NULL,
+        is_completed TINYINT(1) NOT NULL DEFAULT 0,
+        note TEXT NULL,
+        completed_at DATETIME NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_course_lesson_progress (user_id, course_id, lesson_index),
+        CONSTRAINT fk_course_lesson_progress_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        CONSTRAINT fk_course_lesson_progress_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+    )");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS lesson_reports (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        user_id INT UNSIGNED NOT NULL,
+        course_id INT UNSIGNED NOT NULL,
+        lesson_index INT UNSIGNED NULL,
+        report_type VARCHAR(80) NOT NULL DEFAULT 'content_error',
+        message TEXT NOT NULL,
+        status ENUM('open', 'reviewing', 'resolved') NOT NULL DEFAULT 'open',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_lesson_reports_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        CONSTRAINT fk_lesson_reports_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+    )");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS quiz_attempts (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        user_id INT UNSIGNED NOT NULL,
+        course_id INT UNSIGNED NOT NULL,
+        lesson_index INT UNSIGNED NOT NULL,
+        score INT UNSIGNED NOT NULL DEFAULT 0,
+        total INT UNSIGNED NOT NULL DEFAULT 0,
+        essay_answer TEXT NULL,
+        feedback TEXT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_quiz_attempts_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        CONSTRAINT fk_quiz_attempts_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+    )");
+
+    ensure_column('quiz_questions', 'question_type', "ENUM('choice', 'essay') NOT NULL DEFAULT 'choice' AFTER quiz_id");
+    ensure_column('quiz_questions', 'sample_answer', 'TEXT NULL AFTER correct_option');
+
+    $pdo->exec("INSERT IGNORE INTO coupons (code, discount_type, discount_value, usage_limit, is_active)
+        VALUES ('INNO10', 'percent', 10, 200, 1), ('WELCOME50', 'fixed', 50000, 200, 1)");
+
+    $pdo->exec("INSERT IGNORE INTO physical_products (id, name, product_type, description, price, stock, image_url, is_active)
+        VALUES
+        (1, 'Sổ tay InnoCode', 'souvenir', 'Sổ ghi chú học lập trình in logo InnoCode.', 59000, 100, 'https://images.unsplash.com/photo-1517842645767-c639042777db?auto=format&fit=crop&w=900&q=80', 1),
+        (2, 'Áo thun InnoCode', 'souvenir', 'Áo thun cotton dành cho học viên InnoCode.', 179000, 50, 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80', 1),
+        (3, 'Tài liệu PHP bản in', 'printed_document', 'Tài liệu giấy PHP & MySQL có vận chuyển.', 129000, 80, 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=900&q=80', 1)");
 }
 
 function ensure_column(string $table, string $column, string $definition): void

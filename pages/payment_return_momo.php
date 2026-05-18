@@ -5,12 +5,9 @@ $orderId = (int) ($_GET['orderId'] ?? $_POST['orderId'] ?? 0);
 $resultCode = (string) ($_GET['resultCode'] ?? $_POST['resultCode'] ?? '');
 
 if ($orderId > 0 && $resultCode === '0') {
-    complete_order($orderId);
-    flash('success', 'MoMo xác nhận thanh toán thành công.');
+    flash('success', 'MoMo đã ghi nhận giao dịch. Đơn hàng đang chờ admin xác nhận để mở khóa học.');
 } else {
     flash('error', 'Thanh toán MoMo chưa thành công.');
 }
 
 redirect('payment_success.php?id=' . $orderId);
-
-

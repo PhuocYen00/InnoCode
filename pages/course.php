@@ -15,6 +15,8 @@ $currentCourse = $course;
 $sections = course_sections($course);
 $lessonsCount = course_lessons_count($sections);
 $relatedCourses = array_filter(latest_courses(6), static fn (array $item): bool => (int) $item['id'] !== (int) $course['id']);
+$reviews = course_reviews((int) $course['id']);
+$averageRating = course_average_rating((int) $course['id']);
 ?>
 
 <section class="course-detail-hero">
@@ -23,7 +25,7 @@ $relatedCourses = array_filter(latest_courses(6), static fn (array $item): bool 
         <h1 class="course-title"><?= e($course['title']) ?></h1>
         <p class="course-subtitle"><?= e($course['description']) ?></p>
         <div class="course-meta">
-            <span>★ 4.9 (225 đánh giá)</span>
+            <span>★ <?= $averageRating > 0 ? e($averageRating) : '4.9' ?> (<?= count($reviews) ?: 225 ?> đánh giá)</span>
             <span><?= number_format($lessonsCount * 1587, 0, ',', '.') ?> học viên</span>
             <span><?= count($sections) ?> chương</span>
             <span><?= $lessonsCount ?> bài học</span>
@@ -92,6 +94,51 @@ $relatedCourses = array_filter(latest_courses(6), static fn (array $item): bool 
         </section>
 
         <section class="content-block">
+            <div class="section-heading">
+                <div>
+                    <h2>Đánh giá & bình luận</h2>
+                    <p>Học viên đã mua khóa học có thể để lại đánh giá thực tế.</p>
+                </div>
+            </div>
+
+            <?php if (has_purchased_course((int) $course['id'])): ?>
+                <form class="review-form" method="post" action="<?= url('review_course') ?>">
+                    <input type="hidden" name="course_id" value="<?= (int) $course['id'] ?>">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Số sao</label>
+                            <select class="form-select" name="rating">
+                                <?php for ($star = 5; $star >= 1; $star--): ?>
+                                    <option value="<?= $star ?>"><?= $star ?> sao</option>
+                                <?php endfor; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-9">
+                            <label class="form-label">Bình luận</label>
+                            <textarea class="form-control" name="comment" rows="3" placeholder="Chia sẻ trải nghiệm học của bạn"></textarea>
+                        </div>
+                    </div>
+                    <button class="btn btn-outline-primary mt-3" type="submit">Gửi đánh giá</button>
+                </form>
+            <?php elseif (is_logged_in()): ?>
+                <p class="text-muted mb-0">Bạn cần mua khóa học trước khi đánh giá.</p>
+            <?php endif; ?>
+
+            <div class="review-list mt-4">
+                <?php if (!$reviews): ?>
+                    <p class="text-muted mb-0">Chưa có đánh giá nào.</p>
+                <?php endif; ?>
+                <?php foreach ($reviews as $review): ?>
+                    <div class="review-item">
+                        <strong><?= e($review['name']) ?></strong>
+                        <span class="text-warning"><?= str_repeat('★', (int) $review['rating']) ?></span>
+                        <p><?= e($review['comment'] ?: 'Học viên chưa nhập bình luận.') ?></p>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </section>
+
+        <section class="content-block">
             <h2>Khóa học liên quan</h2>
             <div class="row g-4">
                 <?php foreach (array_slice($relatedCourses, 0, 3) as $relatedCourse): ?>
@@ -119,6 +166,14 @@ $relatedCourses = array_filter(latest_courses(6), static fn (array $item): bool 
                 <form method="post" action="<?= url('purchase_course') ?>">
                     <input type="hidden" name="course_id" value="<?= (int) $course['id'] ?>">
                     <button class="btn btn-primary w-100" type="submit">Đăng ký học</button>
+                </form>
+            <?php endif; ?>
+            <?php if (is_logged_in()): ?>
+                <form class="mt-2" method="post" action="<?= url('toggle_favorite') ?>">
+                    <input type="hidden" name="course_id" value="<?= (int) $course['id'] ?>">
+                    <button class="btn btn-outline-primary w-100" type="submit">
+                        <?= is_favorite_course((int) $course['id']) ? 'Bỏ yêu thích' : 'Thêm vào yêu thích' ?>
+                    </button>
                 </form>
             <?php endif; ?>
             <ul class="buy-features">
