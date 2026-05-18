@@ -1,0 +1,95 @@
+<?php
+$pageTitle = 'Khóa học';
+require_once __DIR__ . '/includes/header.php';
+
+$id = (int) ($_GET['id'] ?? 0);
+$course = $id ? find_course($id, false) : null;
+$categories = all_categories();
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $data = [
+        'category_id' => (int) ($_POST['category_id'] ?? 0),
+        'title' => trim($_POST['title'] ?? ''),
+        'description' => trim($_POST['description'] ?? ''),
+        'price' => (float) ($_POST['price'] ?? 0),
+        'level' => trim($_POST['level'] ?? ''),
+        'duration_hours' => (int) ($_POST['duration_hours'] ?? 0),
+        'image_url' => trim($_POST['image_url'] ?? ''),
+        'is_active' => isset($_POST['is_active']) ? 1 : 0,
+    ];
+
+    if ($data['title'] === '' || $data['description'] === '' || !$data['category_id']) {
+        flash('error', 'Vui lòng nhập đầy đủ thông tin bắt buộc.');
+        redirect('admin/course_form.php' . ($id ? '?id=' . $id : ''));
+    }
+
+    if ($id) {
+        $stmt = db()->prepare('UPDATE courses SET category_id = :category_id, title = :title, description = :description, price = :price, level = :level, duration_hours = :duration_hours, image_url = :image_url, is_active = :is_active WHERE id = :id');
+        $data['id'] = $id;
+        $stmt->execute($data);
+        flash('success', 'Đã cập nhật khóa học.');
+    } else {
+        $stmt = db()->prepare('INSERT INTO courses (category_id, title, description, price, level, duration_hours, image_url, is_active) VALUES (:category_id, :title, :description, :price, :level, :duration_hours, :image_url, :is_active)');
+        $stmt->execute($data);
+        flash('success', 'Đã thêm khóa học.');
+    }
+
+    redirect('admin/courses.php');
+}
+?>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2 mb-0"><?= $course ? 'Sửa khóa học' : 'Thêm khóa học' ?></h1>
+    <a class="btn btn-outline-secondary" href="<?= APP_URL ?>/admin/courses.php">Quay lại</a>
+</div>
+
+<form class="bg-white rounded-2 p-4 shadow-sm" method="post">
+    <div class="row g-3">
+        <div class="col-md-8">
+            <label class="form-label">Tên khóa học</label>
+            <input class="form-control" name="title" value="<?= e($course['title'] ?? '') ?>" required>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Danh mục</label>
+            <select class="form-select" name="category_id" required>
+                <option value="">Chọn danh mục</option>
+                <?php foreach ($categories as $category): ?>
+                    <option value="<?= (int) $category['id'] ?>" <?= (int) ($course['category_id'] ?? 0) === (int) $category['id'] ? 'selected' : '' ?>>
+                        <?= e($category['name']) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div class="col-12">
+            <label class="form-label">Mô tả</label>
+            <textarea class="form-control" name="description" rows="4" required><?= e($course['description'] ?? '') ?></textarea>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Giá</label>
+            <input class="form-control" type="number" min="0" name="price" value="<?= e($course['price'] ?? 0) ?>">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Trình độ</label>
+            <input class="form-control" name="level" value="<?= e($course['level'] ?? 'Beginner') ?>">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Thời lượng giờ</label>
+            <input class="form-control" type="number" min="1" name="duration_hours" value="<?= e($course['duration_hours'] ?? 20) ?>">
+        </div>
+        <div class="col-12">
+            <label class="form-label">Ảnh bìa URL</label>
+            <input class="form-control" name="image_url" value="<?= e($course['image_url'] ?? 'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?auto=format&fit=crop&w=1200&q=80') ?>">
+        </div>
+        <div class="col-12">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="is_active" id="is_active" <?= (int) ($course['is_active'] ?? 1) === 1 ? 'checked' : '' ?>>
+                <label class="form-check-label" for="is_active">Đang bán</label>
+            </div>
+        </div>
+    </div>
+    <button class="btn btn-primary mt-4" type="submit">Lưu khóa học</button>
+</form>
+
+<?php require_once __DIR__ . '/includes/footer.php'; ?>
+
+
