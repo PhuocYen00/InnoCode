@@ -8,7 +8,8 @@ if (!isset($languages[$compilerLanguage])) {
     $compilerLanguage = array_key_first($languages) ?: 'php';
 }
 $compilerCode = (string) ($_SESSION['compiler_code'] ?? compiler_sample_code($compilerLanguage));
-unset($_SESSION['compiler_result']);
+$compilerStdin = (string) ($_SESSION['compiler_stdin'] ?? '');
+unset($_SESSION['compiler_result'], $_SESSION['compiler_stdin']);
 
 $pageTitle = 'Trình biên dịch code - ' . APP_NAME;
 require_once dirname(__DIR__) . '/includes/header.php';
@@ -37,6 +38,10 @@ require_once dirname(__DIR__) . '/includes/header.php';
                 <div class="result-head">Output</div>
                 <pre><?= e(is_array($compilerResult) ? $compilerResult['output'] : 'Kết quả chạy code sẽ hiển thị tại đây.') ?></pre>
             </div>
+        </div>
+        <div class="compiler-input-panel">
+            <label class="form-label fw-semibold">Input stdin</label>
+            <textarea class="form-control" name="stdin" rows="4" placeholder="Nhập dữ liệu input cho chương trình nếu cần"><?= e($compilerStdin) ?></textarea>
         </div>
         <div class="compiler-actions">
             <button class="btn btn-primary btn-lg" type="submit">Run</button>

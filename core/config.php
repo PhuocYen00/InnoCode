@@ -35,6 +35,8 @@ const PAYOS_API_KEY = '6c806a0b-8bef-4fd1-a1c1-9775a5b21be2';
 const PAYOS_CHECKSUM_KEY = '8af5ecf3f4a7a2da35f6f88dbd9ca9de2efea81d4bcbb7e26cb7a00562353885';
 const PAYOS_API_URL = 'https://api-merchant.payos.vn/v2/payment-requests';
 
+define('PISTON_API_BASE', getenv('PISTON_API_BASE') ?: 'https://emkc.org/api/v2/piston');
+
 const SMTP_HOST = 'smtp.gmail.com';
 const SMTP_PORT = 587;
 const SMTP_USERNAME = 'phuocyen.281004@gmail.com';
