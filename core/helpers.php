@@ -340,24 +340,40 @@ function cart_key(string $type, int $id): string
     return $type . '_' . $id;
 }
 
+function cart_key_parts(string $key): array
+{
+    if (str_contains($key, '_')) {
+        [$type, $id] = explode('_', $key, 2);
+        return [$type === 'product' ? 'product' : 'course', (int) $id];
+    }
+
+    return ['course', (int) $key];
+}
+
 function cart_add(string $type, int $id): void
 {
     require_login();
 
-    if ($type !== 'course') {
+    if ($type === 'course') {
+        $stmt = db()->prepare('INSERT INTO cart_items (user_id, course_id, quantity) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE quantity = 1');
+        $stmt->execute([(int) current_user()['id'], $id]);
         return;
     }
 
-    $stmt = db()->prepare('INSERT INTO cart_items (user_id, course_id, quantity) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE quantity = quantity + 1');
-    $stmt->execute([(int) current_user()['id'], $id]);
+    if ($type === 'product') {
+        $stmt = db()->prepare('INSERT INTO product_cart_items (user_id, product_id, quantity) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE quantity = quantity + 1');
+        $stmt->execute([(int) current_user()['id'], $id]);
+    }
 }
 
 function cart_remove(string $key): void
 {
     require_login();
-    $courseId = cart_course_id_from_key($key);
-    $stmt = db()->prepare('DELETE FROM cart_items WHERE user_id = ? AND course_id = ?');
-    $stmt->execute([(int) current_user()['id'], $courseId]);
+    [$type, $id] = cart_key_parts($key);
+    $stmt = $type === 'product'
+        ? db()->prepare('DELETE FROM product_cart_items WHERE user_id = ? AND product_id = ?')
+        : db()->prepare('DELETE FROM cart_items WHERE user_id = ? AND course_id = ?');
+    $stmt->execute([(int) current_user()['id'], $id]);
 }
 
 function cart_update(array $quantities): void
@@ -365,14 +381,17 @@ function cart_update(array $quantities): void
     require_login();
 
     foreach ($quantities as $key => $quantity) {
-        $quantity = max(0, (int) $quantity);
-        $courseId = cart_course_id_from_key((string) $key);
+        [$type, $id] = cart_key_parts((string) $key);
+        $quantity = $type === 'course' ? min(1, max(0, (int) $quantity)) : max(0, (int) $quantity);
 
         if ($quantity === 0) {
             cart_remove((string) $key);
+        } elseif ($type === 'product') {
+            $stmt = db()->prepare('UPDATE product_cart_items SET quantity = ? WHERE user_id = ? AND product_id = ?');
+            $stmt->execute([$quantity, (int) current_user()['id'], $id]);
         } else {
             $stmt = db()->prepare('UPDATE cart_items SET quantity = ? WHERE user_id = ? AND course_id = ?');
-            $stmt->execute([$quantity, (int) current_user()['id'], $courseId]);
+            $stmt->execute([$quantity, (int) current_user()['id'], $id]);
         }
     }
 }
@@ -383,8 +402,10 @@ function cart_items_count(): int
         return 0;
     }
 
-    $stmt = db()->prepare('SELECT COALESCE(SUM(quantity), 0) FROM cart_items WHERE user_id = ?');
-    $stmt->execute([(int) current_user()['id']]);
+    $stmt = db()->prepare('SELECT
+        (SELECT COALESCE(SUM(quantity), 0) FROM cart_items WHERE user_id = ?)
+        + (SELECT COALESCE(SUM(quantity), 0) FROM product_cart_items WHERE user_id = ?)');
+    $stmt->execute([(int) current_user()['id'], (int) current_user()['id']]);
 
     return (int) $stmt->fetchColumn();
 }
@@ -402,33 +423,55 @@ function cart_items(): array
         ORDER BY cart_items.updated_at DESC');
     $stmt->execute([(int) current_user()['id']]);
 
-    return array_map(static function (array $item): array {
+    $courseItems = array_map(static function (array $item): array {
         return [
             'key' => cart_key('course', (int) $item['course_id']),
             'type' => 'course',
             'id' => (int) $item['course_id'],
             'title' => $item['title'],
             'price' => (float) $item['price'],
-            'quantity' => (int) $item['quantity'],
-            'line_total' => (float) $item['price'] * (int) $item['quantity'],
+            'quantity' => 1,
+            'line_total' => (float) $item['price'],
             'description' => ($item['level'] ?? '') . ' · ' . ($item['duration_hours'] ?? '') . ' giờ',
+            'is_quantity_editable' => false,
         ];
     }, $stmt->fetchAll());
+
+    $stmt = db()->prepare('SELECT product_cart_items.product_id, product_cart_items.quantity, physical_products.*
+        FROM product_cart_items
+        JOIN physical_products ON physical_products.id = product_cart_items.product_id
+        WHERE product_cart_items.user_id = ? AND physical_products.is_active = 1
+        ORDER BY product_cart_items.updated_at DESC');
+    $stmt->execute([(int) current_user()['id']]);
+
+    $productItems = array_map(static function (array $item): array {
+        return [
+            'key' => cart_key('product', (int) $item['product_id']),
+            'type' => 'product',
+            'id' => (int) $item['product_id'],
+            'title' => $item['name'],
+            'price' => (float) $item['price'],
+            'quantity' => (int) $item['quantity'],
+            'line_total' => (float) $item['price'] * (int) $item['quantity'],
+            'description' => product_type_label((string) $item['product_type']) . ' · Tồn kho: ' . (int) $item['stock'],
+            'is_quantity_editable' => true,
+        ];
+    }, $stmt->fetchAll());
+
+    return array_merge($courseItems, $productItems);
 }
 
 function cart_course_id_from_key(string $key): int
 {
-    if (str_contains($key, '_')) {
-        [, $id] = explode('_', $key, 2);
-        return (int) $id;
-    }
-
-    return (int) $key;
+    [, $id] = cart_key_parts($key);
+    return $id;
 }
 
 function clear_cart(int $userId): void
 {
     $stmt = db()->prepare('DELETE FROM cart_items WHERE user_id = ?');
+    $stmt->execute([$userId]);
+    $stmt = db()->prepare('DELETE FROM product_cart_items WHERE user_id = ?');
     $stmt->execute([$userId]);
 }
 
@@ -442,6 +485,25 @@ function cart_total(array $items): float
     return array_sum(array_column($items, 'line_total'));
 }
 
+function cart_has_physical_items(array $items): bool
+{
+    foreach ($items as $item) {
+        if (($item['type'] ?? '') === 'product') {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function product_type_label(string $type): string
+{
+    return [
+        'pdf' => 'Sách/PDF',
+        'printed_document' => 'Tài liệu giấy',
+        'souvenir' => 'Quà lưu niệm',
+    ][$type] ?? $type;
+}
 function short_text(string $value, int $limit): string
 {
     if (function_exists('mb_substr')) {
@@ -703,7 +765,9 @@ function complete_order(int $orderId): void
 
         $items = order_items($orderId);
         foreach ($items as $item) {
-            mark_course_purchased((int) $item['course_id'], $orderId, (int) $order['user_id']);
+            if (($item['type'] ?? 'course') === 'course') {
+                mark_course_purchased((int) $item['course_id'], $orderId, (int) $order['user_id']);
+            }
         }
 
         if (!empty($order['coupon_code'])) {
@@ -732,7 +796,22 @@ function order_items(int $orderId): array
         WHERE order_items.order_id = ?');
     $stmt->execute([$orderId]);
 
-    return $stmt->fetchAll();
+    $courseItems = array_map(static function (array $item): array {
+        $item['type'] = 'course';
+        return $item;
+    }, $stmt->fetchAll());
+
+    $stmt = db()->prepare('SELECT physical_order_items.*, product_name AS title, NULL AS image_url, NULL AS level, NULL AS duration_hours
+        FROM physical_order_items
+        WHERE order_id = ?');
+    $stmt->execute([$orderId]);
+
+    $productItems = array_map(static function (array $item): array {
+        $item['type'] = 'product';
+        return $item;
+    }, $stmt->fetchAll());
+
+    return array_merge($courseItems, $productItems);
 }
 
 function user_orders(int $userId): array
@@ -1109,6 +1188,57 @@ function compiler_languages(): array
     ];
 }
 
+function compiler_command_available(string $command): bool
+{
+    if (str_starts_with($command, '{')) {
+        return true;
+    }
+
+    static $cache = [];
+    if (array_key_exists($command, $cache)) {
+        return $cache[$command];
+    }
+
+    $checker = PHP_OS_FAMILY === 'Windows' ? ['where', $command] : ['command', '-v', $command];
+    $process = @proc_open($checker, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+
+    if (!is_resource($process)) {
+        return $cache[$command] = false;
+    }
+
+    $output = stream_get_contents($pipes[1]);
+    $error = stream_get_contents($pipes[2]);
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+    $exitCode = proc_close($process);
+
+    return $cache[$command] = ($exitCode === 0 && trim((string) $output . (string) $error) !== '');
+}
+
+function compiler_runtime_available(array $runtime): bool
+{
+    $commands = [];
+    if (!empty($runtime['compile'])) {
+        $commands[] = $runtime['compile'][0];
+    }
+    if (!empty($runtime['command']) && !str_starts_with((string) $runtime['command'][0], '{')) {
+        $commands[] = $runtime['command'][0];
+    }
+
+    foreach (array_unique($commands) as $command) {
+        if (!compiler_command_available((string) $command)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+function compiler_available_languages(): array
+{
+    return array_filter(compiler_languages(), static fn (array $runtime): bool => compiler_runtime_available($runtime));
+}
+
 function compiler_sample_code(string $language): string
 {
     return match ($language) {
@@ -1357,4 +1487,5 @@ function momo_payment_url(array $order): ?string
 
     return is_array($data) ? ($data['payUrl'] ?? null) : null;
 }
+
 

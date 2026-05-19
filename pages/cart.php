@@ -3,20 +3,47 @@ require_once dirname(__DIR__) . '/core/init.php';
 require_login();
 
 $pageTitle = 'Giỏ hàng - ' . APP_NAME;
+$wantsJson = (($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest') || (($_POST['ajax'] ?? '') === '1');
+
+function cart_post_response(bool $ok, string $message, ?string $redirect = null): void
+{
+    global $wantsJson;
+
+    if ($wantsJson) {
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'ok' => $ok,
+            'message' => $message,
+            'cart_count' => cart_items_count(),
+            'redirect' => $redirect,
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    flash($ok ? 'success' : 'error', $message);
+    redirect($redirect ?: ($_SERVER['HTTP_REFERER'] ?? 'cart.php'));
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     $id = (int) ($_POST['id'] ?? ($_POST['course_id'] ?? 0));
 
     if ($action === 'add') {
-        $course = find_course($id);
-
-        if ($course) {
+        if (find_course($id)) {
             cart_add('course', $id);
-            flash('success', 'Đã thêm khóa học vào giỏ hàng.');
+            cart_post_response(true, 'Đã thêm khóa học vào giỏ hàng.');
         }
+        cart_post_response(false, 'Không tìm thấy khóa học.', 'courses.php');
+    }
 
-        redirect('cart.php');
+    if ($action === 'add_product') {
+        $stmt = db()->prepare('SELECT id FROM physical_products WHERE id = ? AND is_active = 1');
+        $stmt->execute([$id]);
+        if ($stmt->fetch()) {
+            cart_add('product', $id);
+            cart_post_response(true, 'Đã thêm sản phẩm vào giỏ hàng.');
+        }
+        cart_post_response(false, 'Không tìm thấy sản phẩm.', 'courses.php');
     }
 
     if ($action === 'update') {
@@ -50,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (isset($_POST['remove_key'])) {
         cart_remove((string) $_POST['remove_key']);
-        flash('success', 'Đã xóa khóa học khỏi giỏ hàng.');
+        flash('success', 'Đã xóa sản phẩm khỏi giỏ hàng.');
         redirect('cart.php');
     }
 }
@@ -79,9 +106,9 @@ $total = max(0, $subtotal - $discount);
                 <table class="table mb-0">
                     <thead>
                     <tr>
-                        <th>Khóa học</th>
+                        <th>Sản phẩm</th>
                         <th>Đơn giá</th>
-                        <th style="width: 140px;">Số lượng</th>
+                        <th style="width: 150px;">Số lượng</th>
                         <th>Tạm tính</th>
                         <th></th>
                     </tr>
@@ -95,7 +122,12 @@ $total = max(0, $subtotal - $discount);
                             </td>
                             <td><?= money($item['price']) ?></td>
                             <td>
-                                <input class="form-control" type="number" min="0" name="quantities[<?= e($item['key']) ?>]" value="<?= (int) $item['quantity'] ?>">
+                                <?php if (!empty($item['is_quantity_editable'])): ?>
+                                    <input class="form-control" type="number" min="0" name="quantities[<?= e($item['key']) ?>]" value="<?= (int) $item['quantity'] ?>">
+                                <?php else: ?>
+                                    <input type="hidden" name="quantities[<?= e($item['key']) ?>]" value="1">
+                                    <span class="badge bg-primary">1 khóa học</span>
+                                <?php endif; ?>
                             </td>
                             <td><?= money($item['line_total']) ?></td>
                             <td>
