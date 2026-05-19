@@ -23,6 +23,7 @@
             <a class="<?= active_nav('cart.php') ?>" href="<?= url('cart') ?>">Giỏ hàng (<?= cart_items_count() ?>)</a>
             <?php if ($user = current_user()): ?>
                 <a class="<?= active_nav('my_courses.php') ?>" href="<?= url('my_courses') ?>">Khóa học của tôi</a>
+                <a class="<?= active_nav('profile.php') ?>" href="<?= url('profile') ?>">Trang cá nhân</a>
                 <a class="login-link" href="<?= url('logout') ?>">Đăng xuất</a>
             <?php else: ?>
                 <a class="<?= active_nav('register.php') ?>" href="<?= url('register') ?>">Đăng ký</a>
@@ -42,4 +43,3 @@
         <div class="alert alert-danger"><?= e($message) ?></div>
     </div>
 <?php endif; ?>
-

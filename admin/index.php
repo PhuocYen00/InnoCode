@@ -19,8 +19,14 @@ $latestQuestions = db()->query('SELECT course_questions.*, users.name AS user_na
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="h2 mb-0">Bảng điều khiển</h1>
-    <a class="btn btn-primary" href="<?= APP_URL ?>/admin/course_form.php">Thêm khóa học</a>
+    <div>
+        <h1 class="h2 mb-1">Bảng điều khiển</h1>
+        <p class="text-muted mb-0">Tổng quan vận hành khóa học, doanh thu và hỗ trợ học viên.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-primary" href="<?= APP_URL ?>/admin/revenue.php">Xem doanh thu</a>
+        <a class="btn btn-primary" href="<?= APP_URL ?>/admin/course_form.php">Thêm khóa học</a>
+    </div>
 </div>
 
 <div class="row g-3 mb-4">
@@ -28,7 +34,7 @@ $latestQuestions = db()->query('SELECT course_questions.*, users.name AS user_na
     <div class="col-md-4 col-xl-2"><div class="bg-white rounded-2 p-4 shadow-sm"><span class="text-muted">Đơn hàng</span><div class="h2"><?= $stats['orders'] ?></div></div></div>
     <div class="col-md-4 col-xl-2"><div class="bg-white rounded-2 p-4 shadow-sm"><span class="text-muted">Học viên</span><div class="h2"><?= $stats['students'] ?></div></div></div>
     <div class="col-md-4 col-xl-2"><div class="bg-white rounded-2 p-4 shadow-sm"><span class="text-muted">Hỏi đáp mở</span><div class="h2"><?= $stats['questions_open'] ?></div></div></div>
-    <div class="col-md-4 col-xl-2"><div class="bg-white rounded-2 p-4 shadow-sm"><span class="text-muted">Quiz</span><div class="h2"><?= $stats['quiz_attempts'] ?></div></div></div>
+    <div class="col-md-4 col-xl-2"><div class="bg-white rounded-2 p-4 shadow-sm"><span class="text-muted">Bài quiz</span><div class="h2"><?= $stats['quiz_attempts'] ?></div></div></div>
     <div class="col-md-4 col-xl-2"><div class="bg-white rounded-2 p-4 shadow-sm"><span class="text-muted">Doanh thu paid</span><div class="h5"><?= money($stats['paid_revenue']) ?></div></div></div>
 </div>
 
@@ -71,3 +77,4 @@ $latestQuestions = db()->query('SELECT course_questions.*, users.name AS user_na
 </div>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
+

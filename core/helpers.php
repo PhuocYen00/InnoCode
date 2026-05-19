@@ -249,6 +249,19 @@ function all_categories(): array
     return db()->query('SELECT * FROM categories ORDER BY name')->fetchAll();
 }
 
+function all_physical_products(bool $activeOnly = true): array
+{
+    $sql = 'SELECT * FROM physical_products';
+
+    if ($activeOnly) {
+        $sql .= ' WHERE is_active = 1';
+    }
+
+    $sql .= ' ORDER BY created_at DESC, id DESC';
+
+    return db()->query($sql)->fetchAll();
+}
+
 function latest_courses(?int $limit = null): array
 {
     $sql = 'SELECT courses.*, categories.name AS category_name
