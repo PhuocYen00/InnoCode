@@ -26,13 +26,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('admin/products.php');
     }
 
+    $imageUrl = trim((string) ($_POST['image_url'] ?? ''));
+    if (!empty($_FILES['image_file']['name'])) {
+        $allowed = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+        $extension = strtolower(pathinfo((string) $_FILES['image_file']['name'], PATHINFO_EXTENSION));
+        if (!in_array($extension, $allowed, true)) {
+            flash('error', 'Ảnh sản phẩm chỉ hỗ trợ JPG, PNG, WEBP hoặc GIF.');
+            redirect('admin/products.php' . ($productId ? '?id=' . $productId : ''));
+        }
+        $uploadDir = dirname(__DIR__) . '/storage/uploads/products';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0777, true);
+        }
+        $fileName = 'product_' . date('YmdHis') . '_' . bin2hex(random_bytes(4)) . '.' . $extension;
+        if (!move_uploaded_file($_FILES['image_file']['tmp_name'], $uploadDir . '/' . $fileName)) {
+            flash('error', 'Không thể tải ảnh sản phẩm lên.');
+            redirect('admin/products.php' . ($productId ? '?id=' . $productId : ''));
+        }
+        $imageUrl = APP_URL . '/storage/uploads/products/' . $fileName;
+    }
+
     $data = [
         'name' => trim((string) ($_POST['name'] ?? '')),
         'product_type' => (string) ($_POST['product_type'] ?? 'pdf'),
         'description' => trim((string) ($_POST['description'] ?? '')),
         'price' => (float) ($_POST['price'] ?? 0),
         'stock' => (int) ($_POST['stock'] ?? 0),
-        'image_url' => trim((string) ($_POST['image_url'] ?? '')),
+        'image_url' => $imageUrl,
         'is_active' => isset($_POST['is_active']) ? 1 : 0,
     ];
 
@@ -65,7 +85,7 @@ $products = all_physical_products(false);
 
 <div class="row g-4">
     <div class="col-lg-4">
-        <form class="bg-white rounded-2 p-4 shadow-sm" method="post">
+        <form class="bg-white rounded-2 p-4 shadow-sm" method="post" enctype="multipart/form-data">
             <input type="hidden" name="id" value="<?= (int) ($product['id'] ?? 0) ?>">
             <h2 class="h5 mb-3"><?= $product ? 'Sửa sản phẩm' : 'Thêm sản phẩm' ?></h2>
             <label class="form-label">Tên sản phẩm</label>
@@ -90,6 +110,8 @@ $products = all_physical_products(false);
             </div>
             <label class="form-label">Ảnh URL</label>
             <input class="form-control mb-3" name="image_url" value="<?= e($product['image_url'] ?? '') ?>">
+            <label class="form-label">Hoặc chọn ảnh từ máy</label>
+            <input class="form-control mb-3" type="file" name="image_file" accept="image/*">
             <div class="form-check mb-3">
                 <input class="form-check-input" type="checkbox" name="is_active" id="product_active" <?= (int) ($product['is_active'] ?? 1) === 1 ? 'checked' : '' ?>>
                 <label class="form-check-label" for="product_active">Đang bán</label>
@@ -125,4 +147,3 @@ $products = all_physical_products(false);
 </div>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
-

@@ -8,6 +8,7 @@ function payment_methods(): array
         'bank' => 'Chuyển khoản VietQR qua PayOS',
         'vnpay' => 'VNPay qua PayOS',
         'momo' => 'MoMo qua PayOS',
+        'cod' => 'Thanh toán khi nhận hàng',
     ];
 }
 
@@ -95,3 +96,4 @@ function course_video_map(): array
         ],
     ];
 }
+

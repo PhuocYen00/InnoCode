@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= e($pageTitle ?? APP_NAME) ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="<?= APP_URL ?>/assets/css/style.css?v=20260518-innocode-logo" rel="stylesheet">
+    <link href="<?= APP_URL ?>/assets/css/style.css?v=20260519-home-layout" rel="stylesheet">
 </head>
 <body>
 <nav class="site-nav sticky-top">
@@ -20,11 +20,19 @@
         <div class="nav-links">
             <a class="<?= active_nav('index.php') ?>" href="<?= url('home') ?>">Trang chủ</a>
             <a class="<?= active_nav('courses.php') ?>" href="<?= url('courses') ?>">Khóa học</a>
-            <a class="<?= active_nav('cart.php') ?>" href="<?= url('cart') ?>">Giỏ hàng (<?= cart_items_count() ?>)</a>
+            <a class="<?= active_nav('compiler.php') ?>" href="<?= url('compiler') ?>">Trình biên dịch</a>
+            <a class="<?= active_nav('about.php') ?>" href="<?= url('about') ?>">Giới thiệu</a>
+            <a class="<?= active_nav('cart.php') ?>" href="<?= url('cart') ?>">Giỏ hàng (<span id="cart-count"><?= cart_items_count() ?></span>)</a>
             <?php if ($user = current_user()): ?>
                 <a class="<?= active_nav('my_courses.php') ?>" href="<?= url('my_courses') ?>">Khóa học của tôi</a>
-                <a class="<?= active_nav('profile.php') ?>" href="<?= url('profile') ?>">Trang cá nhân</a>
-                <a class="login-link" href="<?= url('logout') ?>">Đăng xuất</a>
+                <div class="nav-account dropdown">
+                    <a class="login-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown"><?= e($user['name']) ?></a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="<?= url('profile') ?>">Trang cá nhân</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-danger" href="<?= url('logout') ?>">Đăng xuất</a></li>
+                    </ul>
+                </div>
             <?php else: ?>
                 <a class="<?= active_nav('register.php') ?>" href="<?= url('register') ?>">Đăng ký</a>
                 <a class="login-link" href="<?= url('login') ?>">Đăng nhập</a>

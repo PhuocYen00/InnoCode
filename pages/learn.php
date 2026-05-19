@@ -140,7 +140,7 @@ require_once dirname(__DIR__) . '/includes/header.php';
                         <input type="hidden" name="lesson_index" value="<?= $lessonIndex ?>">
                         <label class="form-label">Ngôn ngữ</label>
                         <select class="form-select mb-2" name="language">
-                            <?php foreach (compiler_languages() as $key => $language): ?>
+                            <?php foreach (compiler_available_languages() as $key => $language): ?>
                                 <option value="<?= e($key) ?>" <?= $key === $compilerLanguage ? 'selected' : '' ?>><?= e($language['label']) ?></option>
                             <?php endforeach; ?>
                         </select>

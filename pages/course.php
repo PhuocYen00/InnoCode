@@ -163,7 +163,7 @@ $averageRating = course_average_rating((int) $course['id']);
             <?php if (has_purchased_course((int) $course['id'])): ?>
                 <a class="btn btn-success w-100" href="<?= url('learn') ?>&id=<?= (int) $course['id'] ?>">Vào học ngay</a>
             <?php else: ?>
-                <form method="post" action="<?= url('purchase_course') ?>">
+                <form method="post" action="<?= url('purchase_course') ?>" class="js-add-cart">
                     <input type="hidden" name="course_id" value="<?= (int) $course['id'] ?>">
                     <button class="btn btn-primary w-100" type="submit">Đăng ký học</button>
                 </form>

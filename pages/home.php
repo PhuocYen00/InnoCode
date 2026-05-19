@@ -31,8 +31,8 @@ $products = array_slice(all_physical_products(), 0, 4);
     </div>
 </section>
 
-<section class="value-strip">
-    <div class="container value-strip-grid">
+<section class="container home-value-wrap">
+    <div class="value-strip-grid">
         <div><strong>Chấm code tự động</strong><span>Compiler nhiều ngôn ngữ</span></div>
         <div><strong>Học liệu đa dạng</strong><span>PDF, slide, source code</span></div>
         <div><strong>Mở khóa trọn đời</strong><span>Học lại bất cứ lúc nào</span></div>
@@ -75,7 +75,7 @@ $products = array_slice(all_physical_products(), 0, 4);
             <span class="hero-kicker">Live compiler</span>
             <h2>Chạy thử PHP, Python, JavaScript, C, C++ và Java</h2>
             <p>Học viên có thể thử code ngay trong bài học, xem output thật và sửa lỗi theo phản hồi của trình biên dịch.</p>
-            <a class="btn btn-primary" href="<?= url('courses') ?>">Bắt đầu học</a>
+            <a class="btn btn-primary" href="<?= url('compiler') ?>">Mở trình biên dịch</a>
         </div>
         <pre><code>&lt;?php
 $name = "InnoCode";
@@ -97,6 +97,11 @@ echo "Hello " . $name;</code></pre>
                     <h3><?= e($product['name']) ?></h3>
                     <p><?= e(excerpt((string) $product['description'], 80)) ?></p>
                     <strong><?= money((float) $product['price']) ?></strong>
+                    <form method="post" action="<?= url('cart') ?>" class="mt-3 js-add-cart">
+                        <input type="hidden" name="action" value="add_product">
+                        <input type="hidden" name="id" value="<?= (int) $product['id'] ?>">
+                        <button class="btn btn-primary btn-sm w-100" type="submit">Thêm vào giỏ hàng</button>
+                    </form>
                 </div>
             </article>
         <?php endforeach; ?>
@@ -120,4 +125,3 @@ echo "Hello " . $name;</code></pre>
 </section>
 
 <?php require_once dirname(__DIR__) . '/includes/footer.php'; ?>
-

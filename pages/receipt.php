@@ -16,6 +16,8 @@ $paymentName = payment_methods()[$order['payment_method']] ?? $order['payment_me
 $subtotal = array_sum(array_map(static fn (array $item): float => (float) $item['price'] * (int) $item['quantity'], $items));
 $discount = (float) ($order['discount_amount'] ?? 0);
 $total = (float) $order['total_amount'];
+$paidSubtotal = $total + $discount;
+$deferredTotal = array_sum(array_map(static fn (array $item): float => (($item['payment_status'] ?? '') === 'pay_later') ? (float) $item['price'] * (int) $item['quantity'] : 0, $items));
 $couponCode = (string) ($order['coupon_code'] ?? '');
 ?>
 <!doctype html>
@@ -242,7 +244,7 @@ $couponCode = (string) ($order['coupon_code'] ?? '');
     <table>
         <thead>
         <tr>
-            <th>Khóa học</th>
+            <th>Nội dung</th>
             <th class="text-center">Số lượng</th>
             <th class="text-end">Đơn giá</th>
             <th class="text-end">Thành tiền</th>
@@ -262,9 +264,15 @@ $couponCode = (string) ($order['coupon_code'] ?? '');
 
     <div class="summary">
         <div class="summary-row">
-            <span>Tạm tính</span>
-            <strong><?= money($subtotal) ?></strong>
+            <span>Tạm tính đã thanh toán</span>
+            <strong><?= money($paidSubtotal) ?></strong>
         </div>
+        <?php if ($deferredTotal > 0): ?>
+            <div class="summary-row">
+                <span>Sách/quà tính sau</span>
+                <strong><?= money($deferredTotal) ?></strong>
+            </div>
+        <?php endif; ?>
         <?php if ($discount > 0): ?>
             <div class="summary-row discount">
                 <span>Giảm giá<?= $couponCode !== '' ? ' (' . e($couponCode) . ')' : '' ?></span>
@@ -272,7 +280,7 @@ $couponCode = (string) ($order['coupon_code'] ?? '');
             </div>
         <?php endif; ?>
         <div class="summary-row total">
-            <span>Tổng cộng</span>
+            <span>Tổng đã thanh toán</span>
             <span><?= money($total) ?></span>
         </div>
     </div>

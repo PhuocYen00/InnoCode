@@ -26,6 +26,7 @@ function ensure_schema(): void
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )");
+    ensure_column('users', 'avatar_url', 'VARCHAR(500) NULL AFTER phone');
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS cart_items (
         id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -198,6 +199,18 @@ function ensure_schema(): void
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )");
 
+    $pdo->exec("CREATE TABLE IF NOT EXISTS product_cart_items (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        user_id INT UNSIGNED NOT NULL,
+        product_id INT UNSIGNED NOT NULL,
+        quantity INT UNSIGNED NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_product_cart_user_product (user_id, product_id),
+        CONSTRAINT fk_product_cart_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        CONSTRAINT fk_product_cart_product FOREIGN KEY (product_id) REFERENCES physical_products(id) ON DELETE CASCADE
+    )");
+
     $pdo->exec("CREATE TABLE IF NOT EXISTS shipments (
         id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
         order_id INT UNSIGNED NOT NULL,
@@ -213,6 +226,18 @@ function ensure_schema(): void
         CONSTRAINT fk_shipments_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
     )");
 
+    $pdo->exec("CREATE TABLE IF NOT EXISTS physical_order_items (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        order_id INT UNSIGNED NOT NULL,
+        product_id INT UNSIGNED NOT NULL,
+        product_name VARCHAR(190) NOT NULL,
+        price DECIMAL(12,2) NOT NULL,
+        quantity INT UNSIGNED NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_physical_order_items_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+        CONSTRAINT fk_physical_order_items_product FOREIGN KEY (product_id) REFERENCES physical_products(id)
+    )");
+
     ensure_column('orders', 'user_id', 'INT UNSIGNED NULL AFTER id');
     ensure_column('orders', 'payment_method', "VARCHAR(40) NOT NULL DEFAULT 'bank' AFTER total_amount");
     ensure_column('orders', 'payment_code', 'VARCHAR(80) NULL AFTER payment_method');
@@ -225,6 +250,7 @@ function ensure_schema(): void
     ensure_column('orders', 'paid_at', 'DATETIME NULL AFTER status');
     ensure_column('orders', 'updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
     ensure_index('orders', 'idx_orders_user', 'user_id');
+    ensure_column('physical_order_items', 'payment_status', "ENUM('paid_online', 'pay_later') NOT NULL DEFAULT 'pay_later' AFTER quantity");
     ensure_column('course_questions', 'lesson_index', 'INT UNSIGNED NULL AFTER lesson_id');
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS course_lesson_progress (
@@ -271,14 +297,93 @@ function ensure_schema(): void
     ensure_column('quiz_questions', 'question_type', "ENUM('choice', 'essay') NOT NULL DEFAULT 'choice' AFTER quiz_id");
     ensure_column('quiz_questions', 'sample_answer', 'TEXT NULL AFTER correct_option');
 
-    $pdo->exec("INSERT IGNORE INTO coupons (code, discount_type, discount_value, usage_limit, is_active)
-        VALUES ('INNO10', 'percent', 10, 200, 1), ('WELCOME50', 'fixed', 50000, 200, 1)");
+    try {
+        $pdo->exec("INSERT IGNORE INTO coupons (code, discount_type, discount_value, usage_limit, is_active)
+            VALUES ('INNO10', 'percent', 10, 200, 1), ('WELCOME50', 'fixed', 50000, 200, 1)");
 
-    $pdo->exec("INSERT IGNORE INTO physical_products (id, name, product_type, description, price, stock, image_url, is_active)
-        VALUES
-        (1, 'Sổ tay InnoCode', 'souvenir', 'Sổ ghi chú học lập trình in logo InnoCode.', 59000, 100, 'https://images.unsplash.com/photo-1517842645767-c639042777db?auto=format&fit=crop&w=900&q=80', 1),
-        (2, 'Áo thun InnoCode', 'souvenir', 'Áo thun cotton dành cho học viên InnoCode.', 179000, 50, 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80', 1),
-        (3, 'Tài liệu PHP bản in', 'printed_document', 'Tài liệu giấy PHP & MySQL có vận chuyển.', 129000, 80, 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=900&q=80', 1)");
+        $pdo->exec("INSERT IGNORE INTO physical_products (id, name, product_type, description, price, stock, image_url, is_active)
+            VALUES
+            (1, 'Sổ tay InnoCode', 'souvenir', 'Sổ ghi chú học lập trình in logo InnoCode.', 59000, 100, 'https://images.unsplash.com/photo-1517842645767-c639042777db?auto=format&fit=crop&w=900&q=80', 1),
+            (2, 'Áo thun InnoCode', 'souvenir', 'Áo thun cotton dành cho học viên InnoCode.', 179000, 50, 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80', 1),
+            (3, 'Tài liệu PHP bản in', 'printed_document', 'Tài liệu giấy PHP & MySQL có vận chuyển.', 129000, 80, 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=900&q=80', 1)");
+
+        seed_revenue_demo_data($pdo);
+    } catch (PDOException $exception) {
+        if (!in_array((string) $exception->getCode(), ['40001', 'HY000'], true)) {
+            throw $exception;
+        }
+    }
+}
+
+function seed_revenue_demo_data(PDO $pdo): void
+{
+    $courseIds = $pdo->query('SELECT id, price FROM courses WHERE is_active = 1 ORDER BY id LIMIT 6')->fetchAll();
+    if (!$courseIds) {
+        return;
+    }
+
+    $stmt = $pdo->prepare('SELECT id FROM users WHERE email = ?');
+    $stmt->execute(['demo.student@innocode.local']);
+    $userId = (int) $stmt->fetchColumn();
+
+    if ($userId <= 0) {
+        $stmt = $pdo->prepare('INSERT INTO users (name, email, phone, password_hash, email_verified_at) VALUES (?, ?, ?, ?, NOW())');
+        $stmt->execute(['Học viên doanh thu mẫu', 'demo.student@innocode.local', '0392604697', password_hash('InnoCode@123', PASSWORD_DEFAULT)]);
+        $userId = (int) $pdo->lastInsertId();
+    }
+
+    $seedOrders = [
+        ['2025-01-12 09:20:00', 0, 0, 'bank'],
+        ['2025-03-18 14:05:00', 1, 50000, 'vnpay'],
+        ['2025-06-25 19:40:00', 2, 0, 'momo'],
+        ['2025-09-09 10:15:00', 3, 100000, 'bank'],
+        ['2025-12-20 16:30:00', 4, 0, 'vnpay'],
+        ['2026-01-15 08:45:00', 5, 50000, 'momo'],
+        ['2026-02-22 13:10:00', 1, 0, 'bank'],
+        ['2026-03-11 18:25:00', 2, 50000, 'vnpay'],
+        ['2026-04-07 11:55:00', 3, 0, 'momo'],
+        ['2026-05-18 17:02:21', 0, 50000, 'bank'],
+    ];
+
+    foreach ($seedOrders as $index => [$createdAt, $courseOffset, $discount, $method]) {
+        $course = $courseIds[$courseOffset % count($courseIds)];
+        $courseId = (int) $course['id'];
+        $price = (float) $course['price'];
+        $total = max(0, $price - (float) $discount);
+        $paymentCode = 'IC-SEED-' . str_replace(['-', ' ', ':'], '', $createdAt);
+
+        $stmt = $pdo->prepare('SELECT id FROM orders WHERE payment_code = ?');
+        $stmt->execute([$paymentCode]);
+        if ($stmt->fetchColumn()) {
+            continue;
+        }
+
+        $stmt = $pdo->prepare("INSERT INTO orders (user_id, customer_name, customer_email, customer_phone, note, total_amount, coupon_code, discount_amount, payment_method, payment_provider, payment_code, status, paid_at, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'paid', ?, ?, ?)");
+        $stmt->execute([
+            $userId,
+            'Học viên doanh thu mẫu',
+            'demo.student@innocode.local',
+            '0392604697',
+            'Đơn dữ liệu mẫu phục vụ thống kê doanh thu theo tháng/năm.',
+            $total,
+            $discount > 0 ? 'WELCOME50' : null,
+            $discount,
+            $method,
+            'payos',
+            $paymentCode,
+            $createdAt,
+            $createdAt,
+            $createdAt,
+        ]);
+        $orderId = (int) $pdo->lastInsertId();
+
+        $stmt = $pdo->prepare('INSERT INTO order_items (order_id, course_id, price, quantity, created_at) VALUES (?, ?, ?, 1, ?)');
+        $stmt->execute([$orderId, $courseId, $price, $createdAt]);
+
+        $stmt = $pdo->prepare('INSERT IGNORE INTO enrollments (user_id, course_id, order_id, enrolled_at) VALUES (?, ?, ?, ?)');
+        $stmt->execute([$userId, $courseId, $orderId, $createdAt]);
+    }
 }
 
 function ensure_column(string $table, string $column, string $definition): void
