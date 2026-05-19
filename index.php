@@ -31,6 +31,7 @@ $routes = [
     'verify_email' => 'verify_email.php',
     'verify_notice' => 'verify_notice.php',
     'my_courses' => 'my_courses.php',
+    'profile' => 'profile.php',
 ];
 
 $page = preg_replace('/[^a-z0-9_]/', '', (string) ($_GET['page'] ?? 'home'));

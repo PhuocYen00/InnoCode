@@ -1,0 +1,4 @@
+storage/sessions/
+storage/compiler/run_*/
+storage/uploads/
+
