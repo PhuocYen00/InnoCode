@@ -1191,12 +1191,13 @@ function quiz_questions_for(int $courseId, int $lessonIndex): array
 function compiler_languages(): array
 {
     return [
-        'php' => ['label' => 'PHP', 'file' => 'main.php', 'piston_language' => 'php'],
-        'python' => ['label' => 'Python', 'file' => 'main.py', 'piston_language' => 'python'],
-        'javascript' => ['label' => 'JavaScript', 'file' => 'main.js', 'piston_language' => 'javascript'],
-        'c' => ['label' => 'C', 'file' => 'main.c', 'piston_language' => 'c'],
-        'cpp' => ['label' => 'C++', 'file' => 'main.cpp', 'piston_language' => 'c++'],
-        'java' => ['label' => 'Java', 'file' => 'Main.java', 'piston_language' => 'java'],
+        'html' => ['label' => 'HTML/CSS/JS', 'file' => 'index.html', 'preview' => true],
+        'php' => ['label' => 'PHP', 'file' => 'main.php', 'command' => ['php', '{file}'], 'piston_language' => 'php'],
+        'python' => ['label' => 'Python', 'file' => 'main.py', 'command' => ['python', '{file}'], 'piston_language' => 'python'],
+        'javascript' => ['label' => 'JavaScript', 'file' => 'main.js', 'command' => ['node', '{file}'], 'piston_language' => 'javascript'],
+        'c' => ['label' => 'C', 'file' => 'main.c', 'compile' => ['gcc', '{file}', '-o', '{exe}'], 'command' => ['{exe}'], 'piston_language' => 'c'],
+        'cpp' => ['label' => 'C++', 'file' => 'main.cpp', 'compile' => ['g++', '{file}', '-o', '{exe}'], 'command' => ['{exe}'], 'piston_language' => 'c++'],
+        'java' => ['label' => 'Java', 'file' => 'Main.java', 'compile' => ['javac', '{file}'], 'command' => ['java', '-cp', '{dir}', 'Main'], 'piston_language' => 'java'],
     ];
 }
 
@@ -1248,12 +1249,27 @@ function compiler_runtime_available(array $runtime): bool
 
 function compiler_available_languages(): array
 {
-    return compiler_languages();
+    $languages = compiler_languages();
+
+    foreach ($languages as $key => $language) {
+        if (!empty($language['preview']) || compiler_runtime_available($language)) {
+            continue;
+        }
+
+        if (!str_contains((string) PISTON_API_BASE, 'emkc.org')) {
+            continue;
+        }
+
+        unset($languages[$key]);
+    }
+
+    return $languages;
 }
 
 function compiler_sample_code(string $language): string
 {
     return match ($language) {
+        'html' => "<!DOCTYPE html>\n<html lang=\"vi\">\n<head>\n    <meta charset=\"UTF-8\">\n    <title>Demo HTML</title>\n    <style>\n        body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }\n        #dong-ho { color: #2563eb; font-size: 48px; }\n        button { margin: 4px; padding: 10px 18px; }\n    </style>\n</head>\n<body>\n    <h1>Đồng hồ đếm giây</h1>\n    <h2 id=\"dong-ho\">0</h2>\n    <button onclick=\"batDau()\">Bắt đầu</button>\n    <button onclick=\"dungLai()\">Dừng lại</button>\n    <button onclick=\"lamMoi()\">Làm mới</button>\n\n    <script>\n        let giay = 0;\n        let timer = null;\n\n        function capNhat() {\n            giay++;\n            document.getElementById('dong-ho').textContent = giay;\n        }\n\n        function batDau() {\n            if (!timer) timer = setInterval(capNhat, 1000);\n        }\n\n        function dungLai() {\n            clearInterval(timer);\n            timer = null;\n        }\n\n        function lamMoi() {\n            dungLai();\n            giay = 0;\n            document.getElementById('dong-ho').textContent = giay;\n        }\n    </script>\n</body>\n</html>\n",
         'python' => "print('Hello InnoCode')\n",
         'javascript' => "console.log('Hello InnoCode');\n",
         'c' => "#include <stdio.h>\n\nint main(void) {\n    printf(\"Hello InnoCode\");\n    return 0;\n}\n",
@@ -1314,20 +1330,36 @@ function run_code(string $language, string $code): array
 
 function run_code_multi(string $language, string $code, string $stdin = ''): array
 {
-    return run_code_piston($language, $code, $stdin);
-
     $languages = compiler_languages();
+    $availableLanguages = compiler_available_languages();
 
-    if (!isset($languages[$language])) {
-        return ['ok' => false, 'output' => 'Ngôn ngữ chưa được hỗ trợ.'];
+    if (!isset($languages[$language]) || !isset($availableLanguages[$language])) {
+        return ['ok' => false, 'output' => 'Ngôn ngữ này hiện chưa chạy được trên máy chủ. Hãy cài runtime tương ứng hoặc cấu hình PISTON_API_BASE tới Piston server riêng.'];
     }
+
+    $stdin = compiler_normalize_stdin($stdin);
+
+    if (!empty($languages[$language]['preview'])) {
+        return ['ok' => true, 'output' => $code, 'preview' => true];
+    }
+
+    $precheck = compiler_precheck_code($language, $code);
+    if ($precheck !== null) {
+        return ['ok' => false, 'output' => $precheck];
+    }
+
+    $pistonResult = run_code_piston($language, $code, $stdin);
+    if ($pistonResult['ok'] || !compiler_runtime_available($languages[$language])) {
+        return compiler_format_result($language, $pistonResult);
+    }
+
+    $runtime = $languages[$language];
 
     $baseDir = dirname(__DIR__) . '/storage/compiler';
     if (!is_dir($baseDir)) {
         mkdir($baseDir, 0777, true);
     }
 
-    $runtime = $languages[$language];
     $dir = $baseDir . '/' . uniqid('run_', true);
     mkdir($dir, 0777, true);
     $file = $dir . '/' . $runtime['file'];
@@ -1358,7 +1390,7 @@ function run_code_multi(string $language, string $code, string $stdin = ''): arr
         }, $command);
     };
 
-    $execute = static function (array $command, string $cwd): array {
+    $execute = static function (array $command, string $cwd, string $input = ''): array {
         $descriptors = [
             0 => ['pipe', 'r'],
             1 => ['pipe', 'w'],
@@ -1371,6 +1403,9 @@ function run_code_multi(string $language, string $code, string $stdin = ''): arr
             return ['ok' => false, 'output' => 'Không khởi động được trình biên dịch. Kiểm tra runtime đã được cài trong PATH chưa.'];
         }
 
+        if ($input !== '') {
+            fwrite($pipes[0], $input);
+        }
         fclose($pipes[0]);
         $output = stream_get_contents($pipes[1]);
         $error = stream_get_contents($pipes[2]);
@@ -1398,13 +1433,60 @@ function run_code_multi(string $language, string $code, string $stdin = ''): arr
         }
     }
 
-    $result = $execute($buildCommand($runtime['command']), $dir);
+    $result = $execute($buildCommand($runtime['command']), $dir, $stdin);
     $cleanup($dir);
 
-    return [
+    return compiler_format_result($language, [
         'ok' => $result['ok'],
         'output' => $result['output'] !== '' ? $result['output'] : '(Chương trình không in ra kết quả.)',
-    ];
+    ]);
+}
+
+function compiler_format_result(string $language, array $result): array
+{
+    $output = (string) ($result['output'] ?? '');
+
+    if ($language === 'python' && str_contains($output, "ModuleNotFoundError: No module named 'requests'")) {
+        $result['output'] = "Python trên compiler hiện không cài thư viện requests.\n\nCách xử lý:\n- Dùng thư viện có sẵn như urllib.request cho ví dụ cơ bản.\n- Hoặc chạy code này trên máy cá nhân sau khi cài: pip install requests.\n- Lưu ý: compiler web này phù hợp với bài console cơ bản, không phù hợp để mở trình duyệt hoặc gọi API ngoài.";
+        return $result;
+    }
+
+    if (str_contains($output, 'EOFError: EOF when reading a line')) {
+        $result['output'] = trim($output) . "\n\nGợi ý: chương trình đang gọi input() nhiều hơn số dòng bạn nhập ở ô Input stdin. Hãy nhập mỗi giá trị trên một dòng, ví dụ:\n8\n5\n3";
+        return $result;
+    }
+
+    if ($language === 'php' && preg_match('/<([a-z][a-z0-9]*)\b[^>]*>/i', $output)) {
+        $result['preview'] = true;
+    }
+
+    return $result;
+}
+
+function compiler_precheck_code(string $language, string $code): ?string
+{
+    if ($language !== 'python') {
+        return null;
+    }
+
+    if (preg_match('/^\s*import\s+webbrowser\b|^\s*from\s+webbrowser\s+import\b/m', $code)) {
+        return "Python trên compiler web không thể mở trình duyệt bằng webbrowser.open().\n\nHãy dùng compiler này cho bài console, tính toán, input/output cơ bản. Nếu muốn hiển thị giao diện, chọn HTML/CSS/JS.";
+    }
+
+    if (preg_match('/^\s*import\s+requests\b|^\s*from\s+requests\s+import\b/m', $code)) {
+        return "Python trên compiler hiện không cài thư viện requests.\n\nBạn có thể đổi sang urllib.request cho ví dụ cơ bản, hoặc chạy trên máy cá nhân sau khi cài: pip install requests.";
+    }
+
+    return null;
+}
+
+function compiler_normalize_stdin(string $stdin): string
+{
+    if ($stdin === '') {
+        return '';
+    }
+
+    return str_ends_with($stdin, "\n") ? $stdin : $stdin . "\n";
 }
 
 function run_code_piston(string $language, string $code, string $stdin = ''): array
