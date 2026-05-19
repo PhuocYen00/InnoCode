@@ -291,7 +291,7 @@ function courses_by_filter(?int $categoryId, ?string $keyword): array
     }
 
     if ($keyword) {
-        $sql .= ' AND (courses.title LIKE :keyword OR courses.description LIKE :keyword)';
+        $sql .= ' AND (courses.title LIKE :keyword OR courses.description LIKE :keyword OR courses.level LIKE :keyword OR categories.name LIKE :keyword)';
         $params['keyword'] = '%' . $keyword . '%';
     }
 
@@ -788,6 +788,18 @@ function complete_order(int $orderId): void
     }
 }
 
+function cancel_order(int $orderId): void
+{
+    if ($orderId <= 0) {
+        return;
+    }
+
+    $stmt = db()->prepare("UPDATE orders
+        SET status = 'cancelled', payos_checkout_url = NULL
+        WHERE id = ? AND status <> 'paid'");
+    $stmt->execute([$orderId]);
+}
+
 function order_items(int $orderId): array
 {
     $stmt = db()->prepare('SELECT order_items.*, courses.title, courses.image_url, courses.level, courses.duration_hours
@@ -915,7 +927,7 @@ function payos_create_payment_link(array $order, array $items): ?string
     $amount = (int) max(0, round((float) $order['total_amount']));
     $description = order_payment_code($orderId);
     $returnUrl = url('payment_success', ['id' => $orderId]);
-    $cancelUrl = url('payment_success', ['id' => $orderId]);
+    $cancelUrl = url('payment_success', ['id' => $orderId, 'status' => 'CANCELLED']);
 
     $signature = payos_signature([
         'amount' => $amount,
@@ -1179,12 +1191,12 @@ function quiz_questions_for(int $courseId, int $lessonIndex): array
 function compiler_languages(): array
 {
     return [
-        'php' => ['label' => 'PHP', 'file' => 'main.php', 'command' => ['php', '{file}']],
-        'python' => ['label' => 'Python', 'file' => 'main.py', 'command' => ['python', '{file}']],
-        'javascript' => ['label' => 'JavaScript', 'file' => 'main.js', 'command' => ['node', '{file}']],
-        'c' => ['label' => 'C', 'file' => 'main.c', 'compile' => ['gcc', '{file}', '-O2', '-std=c11', '-o', '{exe}'], 'command' => ['{exe}']],
-        'cpp' => ['label' => 'C++', 'file' => 'main.cpp', 'compile' => ['g++', '{file}', '-O2', '-std=c++17', '-o', '{exe}'], 'command' => ['{exe}']],
-        'java' => ['label' => 'Java', 'file' => 'Main.java', 'compile' => ['javac', '{file}'], 'command' => ['java', '-cp', '{dir}', 'Main']],
+        'php' => ['label' => 'PHP', 'file' => 'main.php', 'piston_language' => 'php'],
+        'python' => ['label' => 'Python', 'file' => 'main.py', 'piston_language' => 'python'],
+        'javascript' => ['label' => 'JavaScript', 'file' => 'main.js', 'piston_language' => 'javascript'],
+        'c' => ['label' => 'C', 'file' => 'main.c', 'piston_language' => 'c'],
+        'cpp' => ['label' => 'C++', 'file' => 'main.cpp', 'piston_language' => 'c++'],
+        'java' => ['label' => 'Java', 'file' => 'Main.java', 'piston_language' => 'java'],
     ];
 }
 
@@ -1236,7 +1248,7 @@ function compiler_runtime_available(array $runtime): bool
 
 function compiler_available_languages(): array
 {
-    return array_filter(compiler_languages(), static fn (array $runtime): bool => compiler_runtime_available($runtime));
+    return compiler_languages();
 }
 
 function compiler_sample_code(string $language): string
@@ -1253,6 +1265,8 @@ function compiler_sample_code(string $language): string
 
 function run_code(string $language, string $code): array
 {
+    return run_code_multi($language, $code);
+
     $languages = compiler_languages();
 
     if (!isset($languages[$language])) {
@@ -1298,8 +1312,10 @@ function run_code(string $language, string $code): array
     ];
 }
 
-function run_code_multi(string $language, string $code): array
+function run_code_multi(string $language, string $code, string $stdin = ''): array
 {
+    return run_code_piston($language, $code, $stdin);
+
     $languages = compiler_languages();
 
     if (!isset($languages[$language])) {
@@ -1389,6 +1405,163 @@ function run_code_multi(string $language, string $code): array
         'ok' => $result['ok'],
         'output' => $result['output'] !== '' ? $result['output'] : '(Chương trình không in ra kết quả.)',
     ];
+}
+
+function run_code_piston(string $language, string $code, string $stdin = ''): array
+{
+    $languages = compiler_languages();
+
+    if (!isset($languages[$language])) {
+        return ['ok' => false, 'output' => 'Ngôn ngữ chưa được hỗ trợ.'];
+    }
+
+    $runtime = $languages[$language];
+    $pistonLanguage = (string) ($runtime['piston_language'] ?? $language);
+    $response = piston_api_request('/execute', [
+        'language' => $pistonLanguage,
+        'version' => piston_runtime_version($pistonLanguage),
+        'files' => [[
+            'name' => (string) $runtime['file'],
+            'content' => $code,
+        ]],
+        'stdin' => $stdin,
+        'args' => [],
+        'compile_timeout' => 10000,
+        'run_timeout' => 5000,
+    ]);
+
+    if (!$response['ok']) {
+        return ['ok' => false, 'output' => $response['error']];
+    }
+
+    $data = $response['data'];
+    $compile = is_array($data['compile'] ?? null) ? $data['compile'] : null;
+    $run = is_array($data['run'] ?? null) ? $data['run'] : null;
+    $chunks = [];
+
+    if ($compile && trim((string) ($compile['output'] ?? '')) !== '') {
+        $chunks[] = trim((string) $compile['output']);
+    }
+
+    if ($run && trim((string) ($run['output'] ?? '')) !== '') {
+        $chunks[] = trim((string) $run['output']);
+    }
+
+    $exitCode = (int) ($run['code'] ?? $compile['code'] ?? 0);
+    $signal = (string) ($run['signal'] ?? $compile['signal'] ?? '');
+    $output = trim(implode("\n", $chunks));
+
+    if ($signal !== '') {
+        $output .= ($output !== '' ? "\n" : '') . 'Process stopped by signal: ' . $signal;
+    }
+
+    return [
+        'ok' => $exitCode === 0 && $signal === '',
+        'output' => $output !== '' ? $output : '(Chương trình không in ra kết quả.)',
+    ];
+}
+
+function piston_runtime_version(string $language): string
+{
+    static $versions = null;
+
+    if ($versions === null) {
+        $versions = [];
+        $response = piston_api_request('/runtimes');
+
+        if ($response['ok'] && is_array($response['data'])) {
+            foreach ($response['data'] as $runtime) {
+                if (!is_array($runtime) || empty($runtime['version'])) {
+                    continue;
+                }
+
+                $names = [(string) ($runtime['language'] ?? '')];
+                foreach (($runtime['aliases'] ?? []) as $alias) {
+                    $names[] = (string) $alias;
+                }
+
+                foreach ($names as $name) {
+                    if ($name !== '' && !isset($versions[$name])) {
+                        $versions[$name] = (string) $runtime['version'];
+                    }
+                }
+            }
+        }
+    }
+
+    return $versions[$language] ?? '*';
+}
+
+function piston_api_request(string $path, ?array $payload = null): array
+{
+    $url = rtrim(PISTON_API_BASE, '/') . '/' . ltrim($path, '/');
+    $body = $payload === null ? null : json_encode($payload, JSON_UNESCAPED_UNICODE);
+    $headers = ['Content-Type: application/json', 'Accept: application/json'];
+
+    if (function_exists('curl_init')) {
+        $curl = curl_init($url);
+        curl_setopt_array($curl, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CUSTOMREQUEST => $payload === null ? 'GET' : 'POST',
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_POSTFIELDS => $body,
+            CURLOPT_CONNECTTIMEOUT => 8,
+            CURLOPT_TIMEOUT => 20,
+        ]);
+
+        $raw = curl_exec($curl);
+        $error = curl_error($curl);
+        $status = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        curl_close($curl);
+    } else {
+        $context = stream_context_create([
+            'http' => [
+                'method' => $payload === null ? 'GET' : 'POST',
+                'header' => implode("\r\n", $headers),
+                'content' => $body ?? '',
+                'timeout' => 20,
+                'ignore_errors' => true,
+            ],
+        ]);
+        $raw = @file_get_contents($url, false, $context);
+        $error = '';
+        $status = 0;
+
+        foreach (($http_response_header ?? []) as $header) {
+            if (preg_match('/^HTTP\/\S+\s+(\d+)/', $header, $matches)) {
+                $status = (int) $matches[1];
+                break;
+            }
+        }
+    }
+
+    if (!is_string($raw) || $raw === '') {
+        return [
+            'ok' => false,
+            'error' => 'Không kết nối được Piston API. Vui lòng kiểm tra mạng hoặc PISTON_API_BASE.',
+        ];
+    }
+
+    $data = json_decode($raw, true);
+
+    if (!is_array($data)) {
+        return ['ok' => false, 'error' => 'Piston API trả về dữ liệu không hợp lệ.'];
+    }
+
+    if ($status >= 400) {
+        $message = (string) ($data['message'] ?? 'Piston API trả về lỗi HTTP ' . $status . '.');
+        if (stripos($message, 'whitelist') !== false) {
+            $message = 'Piston API public hiện yêu cầu whitelist. Hãy cấu hình PISTON_API_BASE trỏ tới Piston server riêng, ví dụ http://localhost:2000/api/v2.';
+        }
+
+        return ['ok' => false, 'error' => $message];
+    }
+
+    if ($error !== '') {
+        return ['ok' => false, 'error' => 'Lỗi Piston API: ' . $error];
+    }
+
+    return ['ok' => true, 'data' => $data];
 }
 
 function vnpay_payment_url(array $order): ?string

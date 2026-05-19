@@ -16,6 +16,7 @@ $courses = courses_by_filter($categoryId, $keyword ?: null);
             <p class="text-muted mb-0">Tìm khóa học phù hợp với mục tiêu lập trình của bạn.</p>
         </div>
         <form class="d-flex gap-2 flex-wrap" method="get">
+            <input type="hidden" name="page" value="courses">
             <input class="form-control" name="q" value="<?= e($keyword) ?>" placeholder="Tìm theo tên khóa học">
             <select class="form-select" name="category">
                 <option value="">Tất cả danh mục</option>

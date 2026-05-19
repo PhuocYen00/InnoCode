@@ -27,6 +27,17 @@ $stmt = db()->prepare("INSERT INTO course_lesson_progress (user_id, course_id, l
     ON DUPLICATE KEY UPDATE is_completed = VALUES(is_completed), note = VALUES(note), completed_at = IF(VALUES(is_completed) = 1, NOW(), completed_at)");
 $stmt->execute([(int) current_user()['id'], $courseId, $lessonIndex, $isCompleted, $note]);
 
+$wantsJson = (($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest') || (($_POST['ajax'] ?? '') === '1');
+if ($wantsJson) {
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode([
+        'ok' => true,
+        'message' => $action === 'complete' ? 'Đã đánh dấu hoàn thành bài học.' : 'Đã lưu ghi chú.',
+        'is_completed' => $isCompleted,
+        'note' => $note,
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 flash('success', $action === 'complete' ? 'Đã đánh dấu hoàn thành bài học.' : 'Đã lưu ghi chú.');
 redirect('learn.php?id=' . $courseId . '&lesson=' . $lessonIndex);
-

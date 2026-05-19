@@ -28,6 +28,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     $id = (int) ($_POST['id'] ?? ($_POST['course_id'] ?? 0));
 
+    if (isset($_POST['remove_key'])) {
+        cart_remove((string) $_POST['remove_key']);
+        flash('success', 'Đã xóa sản phẩm khỏi giỏ hàng.');
+        redirect('cart.php');
+    }
+
     if ($action === 'add') {
         if (find_course($id)) {
             cart_add('course', $id);
@@ -75,11 +81,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('cart.php');
     }
 
-    if (isset($_POST['remove_key'])) {
-        cart_remove((string) $_POST['remove_key']);
-        flash('success', 'Đã xóa sản phẩm khỏi giỏ hàng.');
-        redirect('cart.php');
-    }
 }
 
 require_once dirname(__DIR__) . '/includes/header.php';

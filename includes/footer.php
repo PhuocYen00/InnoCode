@@ -20,7 +20,6 @@
         <div>
             <h3>Liên hệ</h3>
             <p>Email: phuocyen.281004@gmail.com</p>
-            <p>Vietcombank: 3392604697</p>
             <div class="footer-social">
                 <span>Facebook</span>
                 <span>YouTube</span>
@@ -34,6 +33,45 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 document.addEventListener('submit', async function (event) {
+    const noteForm = event.target.closest('.js-note-form');
+    if (noteForm) {
+        event.preventDefault();
+        const button = noteForm.querySelector('button[type="submit"]');
+        const oldText = button ? button.textContent : '';
+        let status = noteForm.querySelector('.note-save-status');
+        if (!status) {
+            status = document.createElement('span');
+            status.className = 'note-save-status';
+            noteForm.querySelector('.lesson-action-row')?.appendChild(status);
+        }
+        if (button) {
+            button.disabled = true;
+            button.textContent = 'Đang lưu...';
+        }
+        try {
+            const formData = new FormData(noteForm);
+            formData.set('ajax', '1');
+            const response = await fetch(noteForm.action, {
+                method: 'POST',
+                body: formData,
+                headers: {'X-Requested-With': 'XMLHttpRequest'}
+            });
+            const data = await response.json();
+            status.textContent = data.message || 'Đã lưu ghi chú.';
+            status.classList.toggle('text-success', !!data.ok);
+            status.classList.toggle('text-danger', !data.ok);
+        } catch (error) {
+            status.textContent = 'Không lưu được ghi chú. Vui lòng thử lại.';
+            status.classList.add('text-danger');
+        } finally {
+            if (button) {
+                button.disabled = false;
+                button.textContent = oldText;
+            }
+        }
+        return;
+    }
+
     const form = event.target.closest('.js-add-cart');
     if (!form) {
         return;
@@ -78,6 +116,20 @@ document.addEventListener('submit', async function (event) {
             button.textContent = oldText;
         }
     }
+});
+
+document.querySelectorAll('[data-theme-toggle]').forEach(function (button) {
+    const sync = function () {
+        button.textContent = document.documentElement.dataset.theme === 'dark' ? '☀' : '☾';
+    };
+
+    sync();
+    button.addEventListener('click', function () {
+        const nextTheme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+        document.documentElement.dataset.theme = nextTheme;
+        localStorage.setItem('theme', nextTheme);
+        sync();
+    });
 });
 </script>
 </body>

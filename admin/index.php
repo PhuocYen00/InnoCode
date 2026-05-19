@@ -29,13 +29,13 @@ $latestQuestions = db()->query('SELECT course_questions.*, users.name AS user_na
     </div>
 </div>
 
-<div class="row g-3 mb-4">
+<div class="row g-3 mb-4 admin-stats-row">
     <div class="col-md-4 col-xl-2"><div class="bg-white rounded-2 p-4 shadow-sm"><span class="text-muted">Khóa học</span><div class="h2"><?= $stats['courses'] ?></div></div></div>
     <div class="col-md-4 col-xl-2"><div class="bg-white rounded-2 p-4 shadow-sm"><span class="text-muted">Đơn hàng</span><div class="h2"><?= $stats['orders'] ?></div></div></div>
     <div class="col-md-4 col-xl-2"><div class="bg-white rounded-2 p-4 shadow-sm"><span class="text-muted">Học viên</span><div class="h2"><?= $stats['students'] ?></div></div></div>
     <div class="col-md-4 col-xl-2"><div class="bg-white rounded-2 p-4 shadow-sm"><span class="text-muted">Hỏi đáp mở</span><div class="h2"><?= $stats['questions_open'] ?></div></div></div>
     <div class="col-md-4 col-xl-2"><div class="bg-white rounded-2 p-4 shadow-sm"><span class="text-muted">Bài quiz</span><div class="h2"><?= $stats['quiz_attempts'] ?></div></div></div>
-    <div class="col-md-4 col-xl-2"><div class="bg-white rounded-2 p-4 shadow-sm"><span class="text-muted">Doanh thu paid</span><div class="h5"><?= money($stats['paid_revenue']) ?></div></div></div>
+    <div class="col-md-4 col-xl-2"><div class="admin-stat-card bg-white rounded-2 p-4 shadow-sm"><span class="text-muted">Doanh thu</span><div class="h2 admin-revenue-value"><?= money($stats['paid_revenue']) ?></div></div></div>
 </div>
 
 <div class="row g-4">

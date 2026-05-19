@@ -59,7 +59,7 @@ require_once dirname(__DIR__) . '/includes/header.php';
                 </div>
             </div>
 
-            <form class="lesson-card note-card" method="post" action="<?= url('lesson_progress') ?>">
+            <form class="lesson-card note-card js-note-form" method="post" action="<?= url('lesson_progress') ?>">
                 <input type="hidden" name="course_id" value="<?= (int) $course['id'] ?>">
                 <input type="hidden" name="lesson_index" value="<?= $lessonIndex ?>">
                 <div class="lesson-card-head">

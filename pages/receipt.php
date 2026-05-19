@@ -10,6 +10,11 @@ if (!$order || (int) $order['user_id'] !== (int) current_user()['id']) {
     redirect('my_courses.php');
 }
 
+if ($order['status'] !== 'paid') {
+    flash('error', 'Chỉ đơn hàng đã thanh toán mới có biên lai.');
+    redirect('payment_success.php?id=' . $orderId);
+}
+
 $items = order_items($orderId);
 $pageTitle = 'Biên lai #' . $orderId . ' - ' . APP_NAME;
 $paymentName = payment_methods()[$order['payment_method']] ?? $order['payment_method'];

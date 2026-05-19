@@ -24,10 +24,17 @@ $orderCode = (int) ($data['orderCode'] ?? 0);
 $statusCode = (string) ($data['code'] ?? $payload['code'] ?? '');
 $desc = strtolower((string) ($data['desc'] ?? $payload['desc'] ?? ''));
 $isPaid = $statusCode === '00' || str_contains($desc, 'success') || str_contains($desc, 'thành công');
+$gatewayStatus = strtolower((string) ($data['status'] ?? $payload['status'] ?? ''));
+$isCancelled = str_contains($gatewayStatus, 'cancel')
+    || str_contains($desc, 'cancel')
+    || str_contains($desc, 'hủy')
+    || str_contains($desc, 'huy');
 $order = $orderCode > 0 ? find_order_by_payos_code($orderCode) : null;
 
 if ($isPaid && $order) {
     complete_order((int) $order['id']);
+} elseif ($isCancelled && $order) {
+    cancel_order((int) $order['id']);
 }
 
 echo json_encode(['success' => true]);
