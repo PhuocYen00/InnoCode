@@ -31,6 +31,11 @@ $materials = lesson_materials_for((int) $course['id'], $lessonIndex);
 $compilerResult = $_SESSION['compiler_result'] ?? null;
 $compilerLanguage = (string) ($_SESSION['compiler_language'] ?? 'php');
 $compilerCode = (string) ($_SESSION['compiler_code'] ?? compiler_sample_code($compilerLanguage));
+$compilerSamples = [];
+foreach (array_keys(compiler_available_languages()) as $languageKey) {
+    $compilerSamples[$languageKey] = compiler_sample_code($languageKey);
+}
+$isPreviewResult = is_array($compilerResult) && !empty($compilerResult['preview']);
 unset($_SESSION['compiler_result']);
 
 require_once dirname(__DIR__) . '/includes/header.php';
@@ -134,20 +139,24 @@ require_once dirname(__DIR__) . '/includes/header.php';
                         </div>
                         <small>Chọn ngôn ngữ, chạy thử code và xem kết quả thật.</small>
                     </div>
-                    <p class="compiler-hint">Hỗ trợ PHP, Python, JavaScript, C, C++ và Java. Với C/C++/Java, hệ thống sẽ biên dịch trước rồi chạy chương trình.</p>
+                    <p class="compiler-hint">Với chương trình có input, nhập mỗi giá trị trên một dòng. Ngôn ngữ nào thiếu runtime sẽ được ẩn khỏi danh sách.</p>
                     <form method="post" action="<?= url('compiler_run') ?>">
                         <input type="hidden" name="course_id" value="<?= (int) $course['id'] ?>">
                         <input type="hidden" name="lesson_index" value="<?= $lessonIndex ?>">
                         <label class="form-label">Ngôn ngữ</label>
-                        <select class="form-select mb-2" name="language">
+                        <select class="form-select mb-2 js-lesson-compiler-language" name="language">
                             <?php foreach (compiler_available_languages() as $key => $language): ?>
                                 <option value="<?= e($key) ?>" <?= $key === $compilerLanguage ? 'selected' : '' ?>><?= e($language['label']) ?></option>
                             <?php endforeach; ?>
                         </select>
-                        <textarea class="form-control code-area" name="code" rows="7"><?= e($compilerCode) ?></textarea>
+                        <textarea class="form-control code-area js-lesson-compiler-code" name="code" rows="7"><?= e($compilerCode) ?></textarea>
                         <button class="btn btn-primary mt-3" type="submit">Chạy code</button>
                     </form>
-                    <pre class="compiler-output"><?= e(is_array($compilerResult) ? $compilerResult['output'] : 'Kết quả chạy code sẽ hiển thị tại đây.') ?></pre>
+                    <?php if ($isPreviewResult): ?>
+                        <iframe class="compiler-preview-frame lesson-preview-frame" sandbox="allow-scripts allow-forms" srcdoc="<?= e($compilerResult['output']) ?>" title="Preview"></iframe>
+                    <?php else: ?>
+                        <pre class="compiler-output js-lesson-compiler-output"><?= e(is_array($compilerResult) ? $compilerResult['output'] : 'Kết quả chạy code sẽ hiển thị tại đây.') ?></pre>
+                    <?php endif; ?>
                 </section>
             </div>
         </div>
@@ -206,5 +215,34 @@ require_once dirname(__DIR__) . '/includes/header.php';
         </div>
     </aside>
 </section>
+
+<script>
+const lessonCompilerSamples = <?= json_encode($compilerSamples, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+document.querySelectorAll('.js-lesson-compiler-language').forEach(function (select) {
+    select.addEventListener('change', function () {
+        const card = select.closest('.compiler-card');
+        const editor = card?.querySelector('.js-lesson-compiler-code');
+        if (editor) {
+            editor.value = lessonCompilerSamples[select.value] || '';
+        }
+
+        const stdin = card?.querySelector('textarea[name="stdin"]');
+        if (stdin) {
+            stdin.value = '';
+        }
+
+        card?.querySelector('.lesson-preview-frame')?.remove();
+        let output = card?.querySelector('.js-lesson-compiler-output');
+        if (!output && card) {
+            output = document.createElement('pre');
+            output.className = 'compiler-output js-lesson-compiler-output';
+            card.appendChild(output);
+        }
+        if (output) {
+            output.textContent = 'Kết quả chạy code sẽ hiển thị tại đây.';
+        }
+    });
+});
+</script>
 
 <?php require_once dirname(__DIR__) . '/includes/footer.php'; ?>

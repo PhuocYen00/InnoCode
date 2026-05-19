@@ -307,11 +307,68 @@ function ensure_schema(): void
             (2, 'Áo thun InnoCode', 'souvenir', 'Áo thun cotton dành cho học viên InnoCode.', 179000, 50, 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80', 1),
             (3, 'Tài liệu PHP bản in', 'printed_document', 'Tài liệu giấy PHP & MySQL có vận chuyển.', 129000, 80, 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=900&q=80', 1)");
 
+        seed_free_demo_courses($pdo);
         seed_revenue_demo_data($pdo);
     } catch (PDOException $exception) {
         if (!in_array((string) $exception->getCode(), ['40001', 'HY000'], true)) {
             throw $exception;
         }
+    }
+}
+
+function seed_free_demo_courses(PDO $pdo): void
+{
+    $pdo->exec("INSERT INTO categories (name, slug) VALUES
+        ('Backend', 'backend'),
+        ('Frontend', 'frontend'),
+        ('Fullstack', 'fullstack'),
+        ('Database', 'database')
+        ON DUPLICATE KEY UPDATE name = VALUES(name)");
+
+    $freeCourses = [
+        [
+            'frontend',
+            'HTML CSS nhập môn miễn phí',
+            'Làm quen cấu trúc trang web, bố cục responsive, form, button và cách dựng giao diện đầu tiên bằng HTML CSS.',
+            'Beginner',
+            8,
+            'https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80',
+        ],
+        [
+            'frontend',
+            'JavaScript DOM mini project miễn phí',
+            'Thực hành DOM, event, form validation và xây dựng các tương tác nhỏ để chuẩn bị học frontend nâng cao.',
+            'Beginner',
+            10,
+            'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80',
+        ],
+        [
+            'database',
+            'SQL căn bản miễn phí',
+            'Nắm SELECT, WHERE, JOIN, GROUP BY và tư duy đọc dữ liệu cho các dự án web thương mại điện tử.',
+            'Beginner',
+            6,
+            'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1200&q=80',
+        ],
+    ];
+
+    $categoryStmt = $pdo->prepare('SELECT id FROM categories WHERE slug = ?');
+    $existsStmt = $pdo->prepare('SELECT id FROM courses WHERE title = ? LIMIT 1');
+    $insertStmt = $pdo->prepare('INSERT INTO courses (category_id, title, description, price, level, duration_hours, image_url, is_active) VALUES (?, ?, ?, 0, ?, ?, ?, 1)');
+
+    foreach ($freeCourses as [$slug, $title, $description, $level, $durationHours, $imageUrl]) {
+        $existsStmt->execute([$title]);
+        if ($existsStmt->fetchColumn()) {
+            continue;
+        }
+
+        $categoryStmt->execute([$slug]);
+        $categoryId = (int) $categoryStmt->fetchColumn();
+        if ($categoryId <= 0) {
+            continue;
+        }
+
+        $insertStmt->execute([$categoryId, $title, $description, $level, $durationHours, $imageUrl]);
     }
 }
 

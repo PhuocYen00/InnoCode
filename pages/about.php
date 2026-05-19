@@ -6,55 +6,38 @@ require_once dirname(__DIR__) . '/includes/header.php';
 ?>
 
 <section class="about-hero">
-    <div class="container about-grid">
-        <div>
-            <span class="hero-kicker">Về InnoCode</span>
-            <h1>Nền tảng học lập trình web theo dự án thực tế</h1>
-            <p>InnoCode giúp học viên học từ nền tảng đến triển khai sản phẩm: xem bài giảng, làm quiz, ghi chú, chạy code trực tiếp, tải học liệu và đặt câu hỏi trong từng bài học.</p>
-            <div class="about-actions">
-                <a class="btn btn-primary" href="<?= url('courses') ?>">Khám phá khóa học</a>
-                <a class="btn btn-outline-primary" href="<?= url('compiler') ?>">Thử compiler</a>
-            </div>
+    <div class="container">
+        <span class="hero-kicker">Về InnoCode</span>
+        <h1 class="course-title">Khóa học lập trình thực chiến</h1>
+        <p class="course-subtitle">InnoCode là website học lập trình dành cho người muốn học qua ví dụ, bài tập và dự án nhỏ. Nội dung tập trung vào những kiến thức có thể áp dụng ngay khi xây dựng website.</p>
+        <div class="about-actions">
+            <a class="btn btn-primary" href="<?= url('courses') ?>">Xem khóa học</a>
+            <a class="btn btn-outline-primary" href="<?= url('compiler') ?>">Thử viết code</a>
         </div>
-        <div class="about-card">
-            <strong>Hệ thống hiện có</strong>
-            <ul>
-                <li>Khóa học chia theo chương, bài học và tiến độ mở khóa.</li>
-                <li>Quiz trắc nghiệm, tự luận và lưu lịch sử làm bài.</li>
-                <li>Compiler hỗ trợ PHP, Python, JavaScript, C, C++ và Java.</li>
-                <li>Giỏ hàng, coupon, thanh toán PayOS và quản lý đơn hàng.</li>
-            </ul>
-        </div>
-    </div>
-</section>
-
-<section class="container home-section">
-    <div class="section-title">
-        <h2>Cách InnoCode tổ chức việc học</h2>
-        <span>Học, luyện, hỏi, hoàn thiện</span>
-    </div>
-    <div class="value-strip-grid">
-        <div><strong>Học theo lộ trình</strong><span>Nội dung được chia thành chương, bài học, học liệu và bài kiểm tra rõ ràng.</span></div>
-        <div><strong>Luyện code thật</strong><span>Học viên chạy thử code ngay trong bài học, xem output và sửa lỗi nhanh hơn.</span></div>
-        <div><strong>Ghi chú cá nhân</strong><span>Mỗi bài học có ghi chú riêng, tải được thành file để ôn tập.</span></div>
-        <div><strong>Hỏi đáp theo bài</strong><span>Câu hỏi gắn trực tiếp với bài học để admin hoặc giảng viên phản hồi đúng ngữ cảnh.</span></div>
     </div>
 </section>
 
 <section class="container home-section">
     <div class="about-feature-grid">
         <article>
-            <h2>Dành cho học viên</h2>
-            <p>Học viên có thể tìm khóa học, đăng ký tài khoản, xác thực email, mua khóa học, học video, làm quiz, lưu tiến độ, tải tài liệu và theo dõi các khóa đã sở hữu.</p>
+            <h2>Học dễ theo dõi</h2>
+            <p>Khóa học được chia theo chương và bài học rõ ràng. Học viên có thể xem video, tải tài liệu và theo dõi tiến độ học của mình.</p>
         </article>
         <article>
-            <h2>Dành cho quản trị</h2>
-            <p>Admin quản lý danh mục, khóa học, chương bài, học liệu, quiz, học viên, đơn hàng, coupon, sản phẩm vật lý và thống kê doanh thu theo ngày, tháng, năm.</p>
+            <h2>Thực hành ngay</h2>
+            <p>Mỗi bài học có bài tập, quiz và khu vực chạy thử code để học viên kiểm tra lại kiến thức vừa học.</p>
         </article>
         <article>
-            <h2>Định hướng phát triển</h2>
-            <p>InnoCode hướng đến trải nghiệm học gọn, rõ và thực dụng: ít lý thuyết rời rạc, nhiều bài thực hành, nhiều phản hồi và dữ liệu học tập có thể theo dõi được.</p>
+            <h2>Quản lý đơn giản</h2>
+            <p>Website hỗ trợ đăng ký tài khoản, mua khóa học, lưu khóa học đã sở hữu và quản lý thông tin cá nhân.</p>
         </article>
+    </div>
+</section>
+
+<section class="container home-section">
+    <div class="content-block">
+        <h2>Mục tiêu của InnoCode</h2>
+        <p class="text-muted mb-0">Giúp người học nắm chắc nền tảng lập trình web, luyện tập thường xuyên và từng bước xây dựng sản phẩm thực tế. InnoCode ưu tiên cách học gọn, rõ, dễ hiểu và có thể thực hành ngay.</p>
     </div>
 </section>
 
