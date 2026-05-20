@@ -51,7 +51,6 @@ $products = array_slice(all_physical_products(), 0, 4);
                 <span><?= e($path['meta']) ?></span>
                 <h3><?= e($path['title']) ?></h3>
                 <p><?= e($path['text']) ?></p>
-                <a class="btn btn-outline-primary btn-sm" href="<?= url('courses') ?>">Xem lộ trình</a>
             </article>
         <?php endforeach; ?>
     </div>

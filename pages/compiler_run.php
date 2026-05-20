@@ -14,8 +14,6 @@ $stdin = (string) ($_POST['stdin'] ?? '');
 
 if ($courseId <= 0) {
     $_SESSION['compiler_result'] = run_code_multi($language, $code, $stdin);
-    $_SESSION['compiler_code'] = $code;
-    $_SESSION['compiler_stdin'] = $stdin;
     $_SESSION['compiler_language'] = $language;
     redirect('compiler.php');
 }
@@ -26,8 +24,6 @@ if (!find_course($courseId) || !has_purchased_course($courseId)) {
 }
 
 $_SESSION['compiler_result'] = run_code_multi($language, $code, $stdin);
-$_SESSION['compiler_code'] = $code;
-$_SESSION['compiler_stdin'] = $stdin;
 $_SESSION['compiler_language'] = $language;
 
 redirect('learn.php?id=' . $courseId . '&lesson=' . $lessonIndex . '#compiler');

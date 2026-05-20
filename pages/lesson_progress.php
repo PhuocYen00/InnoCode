@@ -17,7 +17,7 @@ if (!find_course($courseId) || !has_purchased_course($courseId)) {
 
 $currentProgress = lesson_progress($courseId, $lessonIndex);
 $note = array_key_exists('note', $_POST)
-    ? trim((string) $_POST['note'])
+    ? (string) $_POST['note']
     : (string) ($currentProgress['note'] ?? '');
 $isCompleted = $action === 'complete' ? 1 : (int) ($currentProgress['is_completed'] ?? 0);
 $completedAtSql = $isCompleted === 1 ? 'NOW()' : 'NULL';

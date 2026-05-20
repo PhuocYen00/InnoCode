@@ -9,7 +9,7 @@
     document.documentElement.dataset.theme = localStorage.getItem('theme') || 'light';
     </script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="<?= APP_URL ?>/assets/css/style.css?v=20260519-compiler-language-preview" rel="stylesheet">
+    <link href="<?= APP_URL ?>/assets/css/style.css?v=20260520-compiler-dark" rel="stylesheet">
 </head>
 <body>
 <nav class="site-nav sticky-top">

@@ -18,6 +18,7 @@ $routes = [
     'lesson_progress' => 'lesson_progress.php',
     'lesson_question' => 'lesson_question.php',
     'lesson_report' => 'lesson_report.php',
+    'lesson_submission' => 'lesson_submission.php',
     'download_material' => 'download_material.php',
     'download_note' => 'download_note.php',
     'quiz' => 'quiz.php',

@@ -280,6 +280,27 @@ function ensure_schema(): void
         CONSTRAINT fk_lesson_reports_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
     )");
 
+    $pdo->exec("CREATE TABLE IF NOT EXISTS lesson_submissions (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        user_id INT UNSIGNED NOT NULL,
+        course_id INT UNSIGNED NOT NULL,
+        lesson_index INT UNSIGNED NOT NULL,
+        lesson_title VARCHAR(190) NOT NULL,
+        original_name VARCHAR(255) NOT NULL,
+        stored_name VARCHAR(255) NOT NULL,
+        file_size INT UNSIGNED NOT NULL DEFAULT 0,
+        note TEXT NULL,
+        feedback TEXT NULL,
+        status ENUM('submitted', 'reviewed') NOT NULL DEFAULT 'submitted',
+        reviewed_at DATETIME NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        CONSTRAINT fk_lesson_submissions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        CONSTRAINT fk_lesson_submissions_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+    )");
+    ensure_index('lesson_submissions', 'idx_lesson_submissions_course', 'course_id');
+    ensure_index('lesson_submissions', 'idx_lesson_submissions_user', 'user_id');
+
     $pdo->exec("CREATE TABLE IF NOT EXISTS quiz_attempts (
         id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
         user_id INT UNSIGNED NOT NULL,

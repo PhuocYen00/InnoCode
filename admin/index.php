@@ -9,6 +9,7 @@ $stats = [
     'students' => (int) db()->query('SELECT COUNT(*) FROM users')->fetchColumn(),
     'questions_open' => (int) db()->query("SELECT COUNT(*) FROM course_questions WHERE status = 'open'")->fetchColumn(),
     'quiz_attempts' => (int) db()->query('SELECT COUNT(*) FROM quiz_attempts')->fetchColumn(),
+    'submissions' => (int) db()->query("SELECT COUNT(*) FROM lesson_submissions WHERE status = 'submitted'")->fetchColumn(),
 ];
 $latestOrders = db()->query('SELECT * FROM orders ORDER BY created_at DESC LIMIT 5')->fetchAll();
 $latestQuestions = db()->query('SELECT course_questions.*, users.name AS user_name, courses.title AS course_title
@@ -35,6 +36,7 @@ $latestQuestions = db()->query('SELECT course_questions.*, users.name AS user_na
     <div class="col-md-4 col-xl-2"><div class="bg-white rounded-2 p-4 shadow-sm"><span class="text-muted">Học viên</span><div class="h2"><?= $stats['students'] ?></div></div></div>
     <div class="col-md-4 col-xl-2"><div class="bg-white rounded-2 p-4 shadow-sm"><span class="text-muted">Hỏi đáp mở</span><div class="h2"><?= $stats['questions_open'] ?></div></div></div>
     <div class="col-md-4 col-xl-2"><div class="bg-white rounded-2 p-4 shadow-sm"><span class="text-muted">Bài quiz</span><div class="h2"><?= $stats['quiz_attempts'] ?></div></div></div>
+    <div class="col-md-4 col-xl-2"><div class="bg-white rounded-2 p-4 shadow-sm"><span class="text-muted">Bài nộp</span><div class="h2"><?= $stats['submissions'] ?></div></div></div>
     <div class="col-md-4 col-xl-2"><div class="admin-stat-card bg-white rounded-2 p-4 shadow-sm"><span class="text-muted">Doanh thu</span><div class="h2 admin-revenue-value"><?= money($stats['paid_revenue']) ?></div></div></div>
 </div>
 
