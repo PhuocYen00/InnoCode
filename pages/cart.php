@@ -43,13 +43,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($action === 'add_product') {
-        $stmt = db()->prepare('SELECT id FROM physical_products WHERE id = ? AND is_active = 1');
+        $stmt = db()->prepare('SELECT id FROM physical_products WHERE id = ? AND is_active = 1 AND stock > 0');
         $stmt->execute([$id]);
         if ($stmt->fetch()) {
             cart_add('product', $id);
             cart_post_response(true, 'Đã thêm sản phẩm vào giỏ hàng.');
         }
-        cart_post_response(false, 'Không tìm thấy sản phẩm.', 'courses.php');
+        cart_post_response(false, 'Sản phẩm không tồn tại hoặc đang hết hàng.', 'products.php');
     }
 
     if ($action === 'update') {

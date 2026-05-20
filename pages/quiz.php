@@ -67,6 +67,9 @@ require_once dirname(__DIR__) . '/includes/header.php';
                     <?php endforeach; ?>
                 <?php else: ?>
                     <textarea class="form-control" name="essay_answer" rows="5" placeholder="Nhập câu trả lời tự luận"></textarea>
+                    <?php if (!empty($question['hint'])): ?>
+                        <p class="text-muted small mt-2 mb-0">Gợi ý: <?= e($question['hint']) ?></p>
+                    <?php endif; ?>
                 <?php endif; ?>
             </div>
         <?php endforeach; ?>

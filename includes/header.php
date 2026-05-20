@@ -25,6 +25,7 @@
             <a class="<?= active_nav('index.php') ?>" href="<?= url('home') ?>">Trang chủ</a>
             <a class="<?= active_nav('about.php') ?>" href="<?= url('about') ?>">Giới thiệu</a>
             <a class="<?= active_nav('courses.php') ?>" href="<?= url('courses') ?>">Khóa học</a>
+            <a class="<?= active_nav('products.php') ?>" href="<?= url('products') ?>">Sách & quà</a>
             <a class="<?= active_nav('compiler.php') ?>" href="<?= url('compiler') ?>">Trình biên dịch</a>
             <a class="<?= active_nav('cart.php') ?>" href="<?= url('cart') ?>">Giỏ hàng (<span id="cart-count"><?= cart_items_count() ?></span>)</a>
             <?php if ($user = current_user()): ?>

@@ -14,7 +14,7 @@ function admin_page_number(): int
 
 function admin_per_page(): int
 {
-    return 10;
+    return 5;
 }
 
 function admin_offset(): int
@@ -32,6 +32,29 @@ function admin_url(string $path, array $params = []): string
     }
 
     return APP_URL . '/' . ltrim($path, '/') . ($query ? '?' . http_build_query($query) : '');
+}
+
+function admin_relative_url(string $path, array $params = []): string
+{
+    $query = array_merge($_GET, $params);
+    foreach ($query as $key => $value) {
+        if ($value === '' || $value === null) {
+            unset($query[$key]);
+        }
+    }
+
+    return ltrim($path, '/') . ($query ? '?' . http_build_query($query) : '');
+}
+
+function admin_return_path(string $fallback = 'admin/courses.php'): string
+{
+    $return = (string) ($_POST['return'] ?? $_GET['return'] ?? '');
+
+    if (preg_match('/^admin\/[a-zA-Z0-9_\/.-]+\.php(?:\?[^#]*)?$/', $return) === 1) {
+        return $return;
+    }
+
+    return $fallback;
 }
 
 function admin_render_search(string $placeholder = 'Tìm kiếm...', array $hidden = []): void
