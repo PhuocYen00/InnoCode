@@ -1,4 +1,7 @@
 storage/sessions/
 storage/compiler/run_*/
+storage/compiler/run_*
 storage/uploads/
 storage/submissions/
+docs/
+tools/

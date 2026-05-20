@@ -2,25 +2,71 @@
 $pageTitle = 'Thống kê doanh thu';
 require_once __DIR__ . '/includes/header.php';
 
-$summary = [
-    'today' => (float) db()->query("SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status = 'paid' AND DATE(paid_at) = CURDATE()")->fetchColumn(),
-    'month' => (float) db()->query("SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status = 'paid' AND YEAR(paid_at) = YEAR(CURDATE()) AND MONTH(paid_at) = MONTH(CURDATE())")->fetchColumn(),
-    'year' => (float) db()->query("SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status = 'paid' AND YEAR(paid_at) = YEAR(CURDATE())")->fetchColumn(),
-    'orders' => (int) db()->query("SELECT COUNT(*) FROM orders WHERE status = 'paid'")->fetchColumn(),
-];
+$from = trim((string) ($_GET['from'] ?? ''));
+$to = trim((string) ($_GET['to'] ?? ''));
+$month = trim((string) ($_GET['month'] ?? ''));
+$year = trim((string) ($_GET['year'] ?? ''));
 
-$daily = db()->query("SELECT DATE(COALESCE(paid_at, created_at)) AS label, SUM(total_amount) AS total
-    FROM orders WHERE status = 'paid'
-    GROUP BY DATE(COALESCE(paid_at, created_at))
-    ORDER BY label DESC LIMIT 14")->fetchAll();
-$monthly = db()->query("SELECT DATE_FORMAT(COALESCE(paid_at, created_at), '%Y-%m') AS label, SUM(total_amount) AS total
-    FROM orders WHERE status = 'paid'
+$currentYear = (int) date('Y');
+if ($month !== '' && preg_match('/^(\d{4})-(\d{2})$/', $month, $matches)) {
+    $year = $matches[1];
+    $month = (string) (int) $matches[2];
+}
+
+$monthNumber = filter_var($month, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 12]]);
+$yearNumber = filter_var($year, FILTER_VALIDATE_INT, ['options' => ['min_range' => 2000, 'max_range' => 2100]]);
+if ($monthNumber !== false) {
+    $yearNumber = $yearNumber !== false ? $yearNumber : $currentYear;
+    $from = sprintf('%04d-%02d-01', $yearNumber, $monthNumber);
+    $to = date('Y-m-t', strtotime($from));
+    $month = (string) $monthNumber;
+    $year = (string) $yearNumber;
+} elseif ($yearNumber !== false) {
+    $year = (string) $yearNumber;
+    $from = $year . '-01-01';
+    $to = $year . '-12-31';
+}
+
+$dateExpr = 'DATE(COALESCE(paid_at, created_at))';
+$whereParts = ["status = 'paid'"];
+$params = [];
+if ($from !== '') {
+    $whereParts[] = $dateExpr . ' >= ?';
+    $params[] = $from;
+}
+if ($to !== '') {
+    $whereParts[] = $dateExpr . ' <= ?';
+    $params[] = $to;
+}
+$whereSql = ' WHERE ' . implode(' AND ', $whereParts);
+
+$summaryStmt = db()->prepare("SELECT COALESCE(SUM(total_amount), 0) AS revenue, COUNT(*) AS orders, COALESCE(AVG(total_amount), 0) AS average_order
+    FROM orders" . $whereSql);
+$summaryStmt->execute($params);
+$summary = $summaryStmt->fetch();
+
+$dailyStmt = db()->prepare("SELECT " . $dateExpr . " AS label, SUM(total_amount) AS total
+    FROM orders" . $whereSql . "
+    GROUP BY " . $dateExpr . "
+    ORDER BY label DESC LIMIT 31");
+$dailyStmt->execute($params);
+$daily = $dailyStmt->fetchAll();
+
+$monthlyStmt = db()->prepare("SELECT DATE_FORMAT(COALESCE(paid_at, created_at), '%Y-%m') AS label, SUM(total_amount) AS total
+    FROM orders" . $whereSql . "
     GROUP BY DATE_FORMAT(COALESCE(paid_at, created_at), '%Y-%m')
-    ORDER BY label DESC LIMIT 12")->fetchAll();
-$yearly = db()->query("SELECT YEAR(COALESCE(paid_at, created_at)) AS label, SUM(total_amount) AS total
-    FROM orders WHERE status = 'paid'
+    ORDER BY label DESC LIMIT 12");
+$monthlyStmt->execute($params);
+$monthly = $monthlyStmt->fetchAll();
+
+$yearlyStmt = db()->prepare("SELECT YEAR(COALESCE(paid_at, created_at)) AS label, SUM(total_amount) AS total
+    FROM orders" . $whereSql . "
     GROUP BY YEAR(COALESCE(paid_at, created_at))
-    ORDER BY label DESC LIMIT 5")->fetchAll();
+    ORDER BY label DESC LIMIT 5");
+$yearlyStmt->execute($params);
+$yearly = $yearlyStmt->fetchAll();
+
+$filterLabel = $from || $to ? trim(($from ?: '...') . ' - ' . ($to ?: '...')) : 'Tất cả thời gian';
 
 $daily = array_reverse($daily);
 $monthly = array_reverse($monthly);
@@ -35,17 +81,42 @@ $yearly = array_reverse($yearly);
     <a class="btn btn-outline-secondary" href="<?= APP_URL ?>/admin/orders.php">Xem đơn hàng</a>
 </div>
 
+<form class="bg-white rounded-2 p-4 shadow-sm mb-4" method="get">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label">Từ ngày</label>
+            <input class="form-control" type="date" name="from" value="<?= e($from) ?>">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Đến ngày</label>
+            <input class="form-control" type="date" name="to" value="<?= e($to) ?>">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Theo tháng</label>
+            <input class="form-control" type="number" min="1" max="12" name="month" value="<?= e($month) ?>" placeholder="1-12">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Theo năm</label>
+            <input class="form-control" type="number" min="2000" max="2100" name="year" value="<?= e($year) ?>" placeholder="2026">
+        </div>
+        <div class="col-md-2 d-flex gap-2">
+            <button class="btn btn-primary flex-fill" type="submit">Lọc</button>
+            <a class="btn btn-outline-secondary" href="<?= APP_URL ?>/admin/revenue.php">Xóa</a>
+        </div>
+    </div>
+</form>
+
 <div class="row g-3 mb-4">
-    <div class="col-md-3"><div class="bg-white rounded-2 p-4 shadow-sm"><span class="text-muted">Hôm nay</span><div class="h4 mb-0"><?= money($summary['today']) ?></div></div></div>
-    <div class="col-md-3"><div class="bg-white rounded-2 p-4 shadow-sm"><span class="text-muted">Tháng này</span><div class="h4 mb-0"><?= money($summary['month']) ?></div></div></div>
-    <div class="col-md-3"><div class="bg-white rounded-2 p-4 shadow-sm"><span class="text-muted">Năm nay</span><div class="h4 mb-0"><?= money($summary['year']) ?></div></div></div>
-    <div class="col-md-3"><div class="bg-white rounded-2 p-4 shadow-sm"><span class="text-muted">Đơn paid</span><div class="h4 mb-0"><?= $summary['orders'] ?></div></div></div>
+    <div class="col-md-3"><div class="bg-white rounded-2 p-4 shadow-sm"><span class="text-muted">Khoảng lọc</span><div class="h6 mb-0"><?= e($filterLabel) ?></div></div></div>
+    <div class="col-md-3"><div class="bg-white rounded-2 p-4 shadow-sm"><span class="text-muted">Doanh thu</span><div class="h4 mb-0"><?= money((float) $summary['revenue']) ?></div></div></div>
+    <div class="col-md-3"><div class="bg-white rounded-2 p-4 shadow-sm"><span class="text-muted">Đơn paid</span><div class="h4 mb-0"><?= (int) $summary['orders'] ?></div></div></div>
+    <div class="col-md-3"><div class="bg-white rounded-2 p-4 shadow-sm"><span class="text-muted">Trung bình/đơn</span><div class="h4 mb-0"><?= money((float) $summary['average_order']) ?></div></div></div>
 </div>
 
 <div class="row g-4">
     <div class="col-lg-8">
         <div class="bg-white rounded-2 p-4 shadow-sm">
-            <h2 class="h5">Doanh thu 14 ngày gần nhất</h2>
+            <h2 class="h5">Doanh thu theo ngày</h2>
             <canvas id="dailyRevenueChart" height="120"></canvas>
         </div>
     </div>
@@ -92,4 +163,3 @@ new Chart(document.getElementById('yearRevenueChart'), {
 </script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
-

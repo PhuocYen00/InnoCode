@@ -75,7 +75,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('admin/products.php');
 }
 
-$products = all_physical_products(false);
+$q = admin_search_term();
+$params = [];
+$where = '';
+if ($q !== '') {
+    $where = ' WHERE name LIKE ? OR product_type LIKE ? OR description LIKE ?';
+    $like = '%' . $q . '%';
+    $params = [$like, $like, $like];
+}
+
+$countStmt = db()->prepare('SELECT COUNT(*) FROM physical_products' . $where);
+$countStmt->execute($params);
+$totalProducts = (int) $countStmt->fetchColumn();
+
+$stmt = db()->prepare('SELECT * FROM physical_products' . $where . '
+    ORDER BY created_at DESC
+    LIMIT ' . admin_per_page() . ' OFFSET ' . admin_offset());
+$stmt->execute($params);
+$products = $stmt->fetchAll();
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -120,6 +137,7 @@ $products = all_physical_products(false);
         </form>
     </div>
     <div class="col-lg-8">
+        <?php admin_render_search('Tìm theo tên, loại hoặc mô tả sản phẩm...'); ?>
         <div class="bg-white rounded-2 shadow-sm table-responsive">
             <table class="table mb-0">
                 <thead><tr><th>Sản phẩm</th><th>Loại</th><th>Giá</th><th>Tồn</th><th>Trạng thái</th><th></th></tr></thead>
@@ -140,9 +158,13 @@ $products = all_physical_products(false);
                         </td>
                     </tr>
                 <?php endforeach; ?>
+                <?php if (!$products): ?>
+                    <tr><td colspan="6" class="text-muted">Không tìm thấy sản phẩm phù hợp.</td></tr>
+                <?php endif; ?>
                 </tbody>
             </table>
         </div>
+        <?php admin_render_pagination($totalProducts, 'admin/products.php', ['id' => null]); ?>
     </div>
 </div>
 

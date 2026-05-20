@@ -2,20 +2,42 @@
 $pageTitle = 'Kết quả quiz';
 require_once __DIR__ . '/includes/header.php';
 
-$attempts = db()->query('SELECT quiz_attempts.*, users.name AS user_name, courses.title AS course_title
+$q = admin_search_term();
+$params = [];
+$where = '';
+if ($q !== '') {
+    $where = ' WHERE users.name LIKE ? OR courses.title LIKE ? OR quiz_attempts.essay_answer LIKE ?';
+    $like = '%' . $q . '%';
+    $params = [$like, $like, $like];
+}
+
+$countStmt = db()->prepare('SELECT COUNT(*)
+    FROM quiz_attempts
+    JOIN users ON users.id = quiz_attempts.user_id
+    JOIN courses ON courses.id = quiz_attempts.course_id' . $where);
+$countStmt->execute($params);
+$totalAttempts = (int) $countStmt->fetchColumn();
+
+$stmt = db()->prepare('SELECT quiz_attempts.*, users.name AS user_name, courses.title AS course_title
     FROM quiz_attempts
     JOIN users ON users.id = quiz_attempts.user_id
     JOIN courses ON courses.id = quiz_attempts.course_id
-    ORDER BY quiz_attempts.created_at DESC')->fetchAll();
+    ' . $where . '
+    ORDER BY quiz_attempts.created_at DESC
+    LIMIT ' . admin_per_page() . ' OFFSET ' . admin_offset());
+$stmt->execute($params);
+$attempts = $stmt->fetchAll();
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h2 mb-0">Kết quả quiz</h1>
     <div class="d-flex gap-2 align-items-center">
-        <span class="badge bg-primary"><?= count($attempts) ?> lượt nộp</span>
+        <span class="badge bg-primary"><?= $totalAttempts ?> lượt nộp</span>
         <a class="btn btn-outline-primary" href="<?= APP_URL ?>/admin/quizzes.php">Quản lý câu hỏi</a>
     </div>
 </div>
+
+<?php admin_render_search('Tìm theo học viên, khóa học hoặc bài tự luận...'); ?>
 
 <div class="bg-white rounded-2 p-4 shadow-sm table-responsive">
     <table class="table">
@@ -46,5 +68,7 @@ $attempts = db()->query('SELECT quiz_attempts.*, users.name AS user_name, course
         <p class="text-muted mb-0">Chưa có lượt làm quiz.</p>
     <?php endif; ?>
 </div>
+
+<?php admin_render_pagination($totalAttempts, 'admin/quiz_attempts.php'); ?>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

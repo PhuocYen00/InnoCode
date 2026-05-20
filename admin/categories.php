@@ -73,11 +73,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('admin/categories.php');
 }
 
-$categories = db()->query('SELECT categories.*, COUNT(courses.id) AS course_count
+$q = admin_search_term();
+$params = [];
+$where = '';
+if ($q !== '') {
+    $where = ' WHERE categories.name LIKE ? OR categories.slug LIKE ?';
+    $like = '%' . $q . '%';
+    $params = [$like, $like];
+}
+
+$countStmt = db()->prepare('SELECT COUNT(*) FROM categories' . $where);
+$countStmt->execute($params);
+$totalCategories = (int) $countStmt->fetchColumn();
+
+$stmt = db()->prepare('SELECT categories.*, COUNT(courses.id) AS course_count
     FROM categories
     LEFT JOIN courses ON courses.category_id = categories.id
+    ' . $where . '
     GROUP BY categories.id
-    ORDER BY categories.name')->fetchAll();
+    ORDER BY categories.name
+    LIMIT ' . admin_per_page() . ' OFFSET ' . admin_offset());
+$stmt->execute($params);
+$categories = $stmt->fetchAll();
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -99,6 +116,7 @@ $categories = db()->query('SELECT categories.*, COUNT(courses.id) AS course_coun
         </form>
     </div>
     <div class="col-lg-8">
+        <?php admin_render_search('Tìm theo tên danh mục hoặc slug...'); ?>
         <div class="bg-white rounded-2 shadow-sm table-responsive">
             <table class="table mb-0">
                 <thead><tr><th>Tên danh mục</th><th>Khóa học</th><th></th></tr></thead>
@@ -116,9 +134,13 @@ $categories = db()->query('SELECT categories.*, COUNT(courses.id) AS course_coun
                         </td>
                     </tr>
                 <?php endforeach; ?>
+                <?php if (!$categories): ?>
+                    <tr><td colspan="3" class="text-muted">Không tìm thấy danh mục phù hợp.</td></tr>
+                <?php endif; ?>
                 </tbody>
             </table>
         </div>
+        <?php admin_render_pagination($totalCategories, 'admin/categories.php', ['id' => null]); ?>
     </div>
 </div>
 
