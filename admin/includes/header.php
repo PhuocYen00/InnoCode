@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../core/init.php';
 require_admin();
+require_once __DIR__ . '/admin_helpers.php';
 $currentAdminPage = basename($_SERVER['SCRIPT_NAME'] ?? '');
 ?>
 <!doctype html>
@@ -21,7 +22,7 @@ $currentAdminPage = basename($_SERVER['SCRIPT_NAME'] ?? '');
         <a class="admin-brand" href="<?= APP_URL ?>/admin/index.php">Admin <?= e(APP_NAME) ?></a>
         <nav class="admin-nav">
             <a class="<?= $currentAdminPage === 'index.php' ? 'active' : '' ?>" href="<?= APP_URL ?>/admin/index.php">Tổng quan</a>
-            <details class="admin-nav-group">
+            <details class="admin-nav-group" data-admin-nav-group="training">
                 <summary>Đào tạo</summary>
                 <a class="<?= in_array($currentAdminPage, ['courses.php', 'course_form.php', 'course_content.php'], true) ? 'active' : '' ?>" href="<?= APP_URL ?>/admin/courses.php">Khóa học</a>
                 <a class="<?= $currentAdminPage === 'categories.php' ? 'active' : '' ?>" href="<?= APP_URL ?>/admin/categories.php">Danh mục</a>
@@ -29,14 +30,14 @@ $currentAdminPage = basename($_SERVER['SCRIPT_NAME'] ?? '');
                 <a class="<?= $currentAdminPage === 'quiz_attempts.php' ? 'active' : '' ?>" href="<?= APP_URL ?>/admin/quiz_attempts.php">Bài làm</a>
                 <a class="<?= in_array($currentAdminPage, ['practice_submissions.php', 'download_submission.php'], true) ? 'active' : '' ?>" href="<?= APP_URL ?>/admin/practice_submissions.php">Bài thực hành</a>
             </details>
-            <details class="admin-nav-group">
+            <details class="admin-nav-group" data-admin-nav-group="commerce">
                 <summary>Thương mại</summary>
                 <a class="<?= in_array($currentAdminPage, ['orders.php', 'order_detail.php'], true) ? 'active' : '' ?>" href="<?= APP_URL ?>/admin/orders.php">Đơn hàng</a>
                 <a class="<?= $currentAdminPage === 'revenue.php' ? 'active' : '' ?>" href="<?= APP_URL ?>/admin/revenue.php">Thống kê doanh thu</a>
                 <a class="<?= $currentAdminPage === 'coupons.php' ? 'active' : '' ?>" href="<?= APP_URL ?>/admin/coupons.php">Coupon</a>
                 <a class="<?= $currentAdminPage === 'products.php' ? 'active' : '' ?>" href="<?= APP_URL ?>/admin/products.php">Sách & quà lưu niệm</a>
             </details>
-            <details class="admin-nav-group">
+            <details class="admin-nav-group" data-admin-nav-group="community">
                 <summary>Cộng đồng</summary>
                 <a class="<?= $currentAdminPage === 'users.php' ? 'active' : '' ?>" href="<?= APP_URL ?>/admin/users.php">Học viên</a>
                 <a class="<?= $currentAdminPage === 'questions.php' ? 'active' : '' ?>" href="<?= APP_URL ?>/admin/questions.php">Hỏi đáp</a>

@@ -21,15 +21,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $status = (string) ($_GET['status'] ?? '');
+$q = admin_search_term();
 $params = [];
-$sql = 'SELECT orders.*, users.name AS user_name FROM orders LEFT JOIN users ON users.id = orders.user_id';
+$whereParts = [];
 
 if ($status !== '') {
-    $sql .= ' WHERE orders.status = ?';
+    $whereParts[] = 'orders.status = ?';
     $params[] = $status;
 }
+if ($q !== '') {
+    $numericQ = preg_replace('/\D+/', '', $q);
+    $whereParts[] = '(orders.id = ?
+        OR orders.payment_code LIKE ?
+        OR orders.payos_order_code LIKE ?
+        OR orders.payos_payment_link_id LIKE ?
+        OR orders.customer_name LIKE ?
+        OR orders.customer_email LIKE ?
+        OR orders.customer_phone LIKE ?
+        OR orders.note LIKE ?
+        OR orders.coupon_code LIKE ?
+        OR orders.payment_method LIKE ?
+        OR orders.payment_provider LIKE ?
+        OR orders.status LIKE ?
+        OR CAST(orders.total_amount AS CHAR) LIKE ?
+        OR users.name LIKE ?
+        OR EXISTS (
+            SELECT 1 FROM order_items
+            JOIN courses ON courses.id = order_items.course_id
+            WHERE order_items.order_id = orders.id AND courses.title LIKE ?
+        )
+        OR EXISTS (
+            SELECT 1 FROM physical_order_items
+            WHERE physical_order_items.order_id = orders.id AND physical_order_items.product_name LIKE ?
+        ))';
+    $like = '%' . $q . '%';
+    $params[] = $numericQ !== '' ? (int) $numericQ : 0;
+    array_push($params, $like, $like, $like, $like, $like, $like, $like, $like, $like, $like, $like, $like, $like, $like, $like);
+}
 
-$sql .= ' ORDER BY orders.created_at DESC';
+$whereSql = $whereParts ? ' WHERE ' . implode(' AND ', $whereParts) : '';
+
+$countStmt = db()->prepare('SELECT COUNT(*)
+    FROM orders
+    LEFT JOIN users ON users.id = orders.user_id' . $whereSql);
+$countStmt->execute($params);
+$totalOrders = (int) $countStmt->fetchColumn();
+
+$sql = 'SELECT orders.*, users.name AS user_name
+    FROM orders
+    LEFT JOIN users ON users.id = orders.user_id' . $whereSql . '
+    ORDER BY orders.created_at DESC
+    LIMIT ' . admin_per_page() . ' OFFSET ' . admin_offset();
 $stmt = db()->prepare($sql);
 $stmt->execute($params);
 $orders = $stmt->fetchAll();
@@ -44,6 +86,8 @@ $orders = $stmt->fetchAll();
         <a class="btn btn-outline-primary <?= $status === 'cancelled' ? 'active' : '' ?>" href="<?= APP_URL ?>/admin/orders.php?status=cancelled">Cancelled</a>
     </div>
 </div>
+
+<?php admin_render_search('Tìm mã đơn, học viên, email, coupon...', ['status' => $status]); ?>
 
 <div class="bg-white rounded-2 shadow-sm table-responsive">
     <table class="table mb-0">
@@ -98,5 +142,7 @@ $orders = $stmt->fetchAll();
         </tbody>
     </table>
 </div>
+
+<?php admin_render_pagination($totalOrders, 'admin/orders.php', ['status' => $status]); ?>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

@@ -16,6 +16,23 @@ document.querySelectorAll('[data-theme-toggle]').forEach(function (button) {
         sync();
     });
 });
+
+document.querySelectorAll('[data-admin-nav-group]').forEach(function (group) {
+    const key = 'admin-nav-group-' + group.dataset.adminNavGroup;
+    const saved = localStorage.getItem(key);
+    if (saved === 'open') {
+        group.open = true;
+    }
+    if (saved === 'closed') {
+        group.open = false;
+    }
+    if (group.querySelector('a.active') && saved === null) {
+        group.open = true;
+    }
+    group.addEventListener('toggle', function () {
+        localStorage.setItem(key, group.open ? 'open' : 'closed');
+    });
+});
 </script>
 </body>
 </html>

@@ -49,7 +49,24 @@ if (isset($_GET['id'])) {
     $edit = $stmt->fetch() ?: null;
 }
 
-$coupons = db()->query('SELECT * FROM coupons ORDER BY created_at DESC')->fetchAll();
+$q = admin_search_term();
+$params = [];
+$where = '';
+if ($q !== '') {
+    $where = ' WHERE code LIKE ? OR discount_type LIKE ?';
+    $like = '%' . $q . '%';
+    $params = [$like, $like];
+}
+
+$countStmt = db()->prepare('SELECT COUNT(*) FROM coupons' . $where);
+$countStmt->execute($params);
+$totalCoupons = (int) $countStmt->fetchColumn();
+
+$stmt = db()->prepare('SELECT * FROM coupons' . $where . '
+    ORDER BY created_at DESC
+    LIMIT ' . admin_per_page() . ' OFFSET ' . admin_offset());
+$stmt->execute($params);
+$coupons = $stmt->fetchAll();
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -99,6 +116,7 @@ $coupons = db()->query('SELECT * FROM coupons ORDER BY created_at DESC')->fetchA
         </form>
     </div>
     <div class="col-lg-8">
+        <?php admin_render_search('Tìm theo mã coupon hoặc loại giảm...'); ?>
         <div class="bg-white rounded-2 shadow-sm table-responsive">
             <table class="table mb-0">
                 <thead>
@@ -130,9 +148,13 @@ $coupons = db()->query('SELECT * FROM coupons ORDER BY created_at DESC')->fetchA
                         </td>
                     </tr>
                 <?php endforeach; ?>
+                <?php if (!$coupons): ?>
+                    <tr><td colspan="6" class="text-muted">Không tìm thấy coupon phù hợp.</td></tr>
+                <?php endif; ?>
                 </tbody>
             </table>
         </div>
+        <?php admin_render_pagination($totalCoupons, 'admin/coupons.php', ['id' => null]); ?>
     </div>
 </div>
 

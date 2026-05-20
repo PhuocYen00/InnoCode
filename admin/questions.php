@@ -13,17 +13,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('admin/questions.php');
 }
 
-$questions = db()->query('SELECT course_questions.*, users.name AS user_name, courses.title AS course_title
+$q = admin_search_term();
+$params = [];
+$where = '';
+if ($q !== '') {
+    $where = ' WHERE users.name LIKE ? OR courses.title LIKE ? OR course_questions.question LIKE ? OR course_questions.answer LIKE ?';
+    $like = '%' . $q . '%';
+    $params = [$like, $like, $like, $like];
+}
+
+$countStmt = db()->prepare('SELECT COUNT(*)
+    FROM course_questions
+    JOIN users ON users.id = course_questions.user_id
+    JOIN courses ON courses.id = course_questions.course_id' . $where);
+$countStmt->execute($params);
+$totalQuestions = (int) $countStmt->fetchColumn();
+
+$stmt = db()->prepare('SELECT course_questions.*, users.name AS user_name, courses.title AS course_title
     FROM course_questions
     JOIN users ON users.id = course_questions.user_id
     JOIN courses ON courses.id = course_questions.course_id
-    ORDER BY course_questions.created_at DESC')->fetchAll();
+    ' . $where . '
+    ORDER BY course_questions.created_at DESC
+    LIMIT ' . admin_per_page() . ' OFFSET ' . admin_offset());
+$stmt->execute($params);
+$questions = $stmt->fetchAll();
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h2 mb-0">Hỏi đáp học viên</h1>
-    <span class="badge bg-primary"><?= count($questions) ?> câu hỏi</span>
+    <span class="badge bg-primary"><?= $totalQuestions ?> câu hỏi</span>
 </div>
+
+<?php admin_render_search('Tìm theo học viên, khóa học, câu hỏi hoặc câu trả lời...'); ?>
 
 <div class="bg-white rounded-2 p-4 shadow-sm">
     <?php if (!$questions): ?>
@@ -49,5 +71,7 @@ $questions = db()->query('SELECT course_questions.*, users.name AS user_name, co
         </form>
     <?php endforeach; ?>
 </div>
+
+<?php admin_render_pagination($totalQuestions, 'admin/questions.php'); ?>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
