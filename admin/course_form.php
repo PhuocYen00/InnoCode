@@ -5,6 +5,11 @@ require_once __DIR__ . '/includes/header.php';
 $id = (int) ($_GET['id'] ?? 0);
 $course = $id ? find_course($id, false) : null;
 $categories = all_categories();
+$returnPath = admin_return_path();
+$formPath = admin_relative_url('admin/course_form.php', [
+    'id' => $id ?: null,
+    'return' => $returnPath,
+]);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $imageUrl = trim((string) ($_POST['image_url'] ?? ''));
@@ -15,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!in_array($extension, $allowed, true)) {
             flash('error', 'Ảnh bìa chỉ hỗ trợ JPG, PNG, WEBP hoặc GIF.');
-            redirect('admin/course_form.php' . ($id ? '?id=' . $id : ''));
+            redirect($formPath);
         }
 
         $uploadDir = dirname(__DIR__) . '/storage/uploads/courses';
@@ -28,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!move_uploaded_file($_FILES['image_file']['tmp_name'], $target)) {
             flash('error', 'Không thể tải ảnh bìa lên. Vui lòng thử lại.');
-            redirect('admin/course_form.php' . ($id ? '?id=' . $id : ''));
+            redirect($formPath);
         }
 
         $imageUrl = APP_URL . '/storage/uploads/courses/' . $fileName;
@@ -47,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($data['title'] === '' || $data['description'] === '' || !$data['category_id']) {
         flash('error', 'Vui lòng nhập đầy đủ thông tin bắt buộc.');
-        redirect('admin/course_form.php' . ($id ? '?id=' . $id : ''));
+        redirect($formPath);
     }
 
     if ($data['image_url'] === '') {
@@ -64,19 +69,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute($data);
         $id = (int) db()->lastInsertId();
         flash('success', 'Đã thêm khóa học. Bạn có thể thêm chương và bài học ngay.');
-        redirect('admin/course_content.php?id=' . $id);
+        redirect('admin/course_content.php?id=' . $id . '&return=' . urlencode($returnPath));
     }
 
-    redirect('admin/courses.php');
+    redirect($returnPath);
 }
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h2 mb-0"><?= $course ? 'Sửa khóa học' : 'Thêm khóa học' ?></h1>
-    <a class="btn btn-outline-secondary" href="<?= APP_URL ?>/admin/courses.php">Quay lại</a>
+    <a class="btn btn-outline-secondary" href="<?= APP_URL ?>/<?= e($returnPath) ?>">Quay lại</a>
 </div>
 
 <form class="bg-white rounded-2 p-4 shadow-sm" method="post" enctype="multipart/form-data">
+    <input type="hidden" name="return" value="<?= e($returnPath) ?>">
     <div class="row g-3">
         <div class="col-md-8">
             <label class="form-label">Tên khóa học</label>
@@ -133,4 +139,3 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </form>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
-

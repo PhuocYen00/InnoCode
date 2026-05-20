@@ -5,6 +5,7 @@ $routes = [
     'home' => 'home.php',
     'courses' => 'courses.php',
     'course' => 'course.php',
+    'products' => 'products.php',
     'learn' => 'learn.php',
     'cart' => 'cart.php',
     'checkout' => 'checkout.php',

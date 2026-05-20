@@ -46,9 +46,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ];
 
         if ($questionType === 'essay') {
-            $data['option_a'] = $data['option_a'] ?: '-';
-            $data['option_b'] = $data['option_b'] ?: '-';
-            $data['correct_option'] = '';
+            if ($data['option_a'] === '') {
+                flash('error', 'Câu tự luận cần nhập đáp án đúng.');
+                redirect('admin/quizzes.php?course_id=' . $courseId . '&lesson_id=' . $lessonId);
+            }
+
+            $data['option_b'] = '-';
+            $data['option_c'] = '';
+            $data['option_d'] = '';
+            $data['correct_option'] = 'a';
         } elseif ($data['option_a'] === '' || $data['option_b'] === '') {
             flash('error', 'Câu trắc nghiệm cần ít nhất đáp án A và B.');
             redirect('admin/quizzes.php?course_id=' . $courseId . '&lesson_id=' . $lessonId);
@@ -143,7 +149,7 @@ if ($lessonId > 0) {
 <?php if ($lessonId > 0): ?>
     <section class="bg-white rounded-2 p-4 shadow-sm mb-4">
         <h2 class="h5 mb-3">Thêm câu hỏi mới</h2>
-        <form method="post">
+        <form method="post" data-quiz-question-form>
             <input type="hidden" name="course_id" value="<?= $courseId ?>">
             <input type="hidden" name="lesson_id" value="<?= $lessonId ?>">
             <input type="hidden" name="action" value="save_question">
@@ -154,7 +160,7 @@ if ($lessonId > 0) {
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Loại câu hỏi</label>
-                    <select class="form-select" name="question_type">
+                    <select class="form-select" name="question_type" data-question-type>
                         <option value="choice">Trắc nghiệm</option>
                         <option value="essay">Tự luận</option>
                     </select>
@@ -163,11 +169,15 @@ if ($lessonId > 0) {
                     <label class="form-label">Câu hỏi</label>
                     <textarea class="form-control" name="question" rows="3" required></textarea>
                 </div>
-                <div class="col-md-3"><input class="form-control" name="option_a" placeholder="Đáp án A"></div>
-                <div class="col-md-3"><input class="form-control" name="option_b" placeholder="Đáp án B"></div>
-                <div class="col-md-3"><input class="form-control" name="option_c" placeholder="Đáp án C"></div>
-                <div class="col-md-3"><input class="form-control" name="option_d" placeholder="Đáp án D"></div>
-                <div class="col-md-3">
+                <div class="col-md-3" data-choice-field><input class="form-control" name="option_a" placeholder="Đáp án A"></div>
+                <div class="col-md-3" data-choice-field><input class="form-control" name="option_b" placeholder="Đáp án B"></div>
+                <div class="col-md-3" data-choice-field><input class="form-control" name="option_c" placeholder="Đáp án C"></div>
+                <div class="col-md-3" data-choice-field><input class="form-control" name="option_d" placeholder="Đáp án D"></div>
+                <div class="col-md-6 d-none" data-essay-field>
+                    <label class="form-label">Đáp án đúng</label>
+                    <input class="form-control" name="option_a" placeholder="Nhập đáp án đúng cho câu tự luận" disabled>
+                </div>
+                <div class="col-md-3" data-choice-answer>
                     <label class="form-label">Đáp án đúng</label>
                     <select class="form-select" name="correct_option">
                         <option value="a">A</option>
@@ -176,9 +186,9 @@ if ($lessonId > 0) {
                         <option value="d">D</option>
                     </select>
                 </div>
-                <div class="col-md-9">
-                    <label class="form-label">Gợi ý đáp án tự luận</label>
-                    <input class="form-control" name="sample_answer">
+                <div class="col-md-6 d-none" data-essay-hint>
+                    <label class="form-label">Gợi ý</label>
+                    <input class="form-control" name="sample_answer" placeholder="Gợi ý ngắn để học viên định hướng câu trả lời">
                 </div>
             </div>
             <button class="btn btn-primary mt-3" type="submit">Thêm câu hỏi</button>
@@ -191,14 +201,15 @@ if ($lessonId > 0) {
             <p class="text-muted">Chưa có câu hỏi nào cho bài học này.</p>
         <?php endif; ?>
         <?php foreach ($questions as $question): ?>
-            <form class="border rounded-2 p-3 mb-3" method="post">
+            <?php $isEssay = ($question['question_type'] ?? 'choice') === 'essay'; ?>
+            <form class="border rounded-2 p-3 mb-3" method="post" data-quiz-question-form>
                 <input type="hidden" name="course_id" value="<?= $courseId ?>">
                 <input type="hidden" name="lesson_id" value="<?= $lessonId ?>">
                 <input type="hidden" name="question_id" value="<?= (int) $question['id'] ?>">
                 <div class="row g-3">
                     <div class="col-md-3">
                         <label class="form-label">Loại</label>
-                        <select class="form-select" name="question_type">
+                        <select class="form-select" name="question_type" data-question-type>
                             <option value="choice" <?= $question['question_type'] === 'choice' ? 'selected' : '' ?>>Trắc nghiệm</option>
                             <option value="essay" <?= $question['question_type'] === 'essay' ? 'selected' : '' ?>>Tự luận</option>
                         </select>
@@ -207,19 +218,23 @@ if ($lessonId > 0) {
                         <label class="form-label">Câu hỏi</label>
                         <input class="form-control" name="question" value="<?= e($question['question']) ?>">
                     </div>
-                    <div class="col-md-3"><input class="form-control" name="option_a" value="<?= e($question['option_a']) ?>" placeholder="A"></div>
-                    <div class="col-md-3"><input class="form-control" name="option_b" value="<?= e($question['option_b']) ?>" placeholder="B"></div>
-                    <div class="col-md-3"><input class="form-control" name="option_c" value="<?= e($question['option_c']) ?>" placeholder="C"></div>
-                    <div class="col-md-3"><input class="form-control" name="option_d" value="<?= e($question['option_d']) ?>" placeholder="D"></div>
-                    <div class="col-md-3">
-                        <select class="form-select" name="correct_option">
+                    <div class="col-md-3" data-choice-field><input class="form-control" name="option_a" value="<?= e($isEssay ? '' : $question['option_a']) ?>" placeholder="Đáp án A" <?= $isEssay ? 'disabled' : '' ?>></div>
+                    <div class="col-md-3" data-choice-field><input class="form-control" name="option_b" value="<?= e($isEssay ? '' : $question['option_b']) ?>" placeholder="Đáp án B" <?= $isEssay ? 'disabled' : '' ?>></div>
+                    <div class="col-md-3" data-choice-field><input class="form-control" name="option_c" value="<?= e($isEssay ? '' : $question['option_c']) ?>" placeholder="Đáp án C" <?= $isEssay ? 'disabled' : '' ?>></div>
+                    <div class="col-md-3" data-choice-field><input class="form-control" name="option_d" value="<?= e($isEssay ? '' : $question['option_d']) ?>" placeholder="Đáp án D" <?= $isEssay ? 'disabled' : '' ?>></div>
+                    <div class="col-md-6 <?= $isEssay ? '' : 'd-none' ?>" data-essay-field>
+                        <label class="form-label">Đáp án đúng</label>
+                        <input class="form-control" name="option_a" value="<?= e($isEssay ? $question['option_a'] : '') ?>" placeholder="Nhập đáp án đúng cho câu tự luận" <?= $isEssay ? '' : 'disabled' ?>>
+                    </div>
+                    <div class="col-md-3 <?= $isEssay ? 'd-none' : '' ?>" data-choice-answer>
+                        <select class="form-select" name="correct_option" <?= $isEssay ? 'disabled' : '' ?>>
                             <?php foreach (['a', 'b', 'c', 'd'] as $option): ?>
                                 <option value="<?= $option ?>" <?= strtolower((string) $question['correct_option']) === $option ? 'selected' : '' ?>>Đáp án <?= strtoupper($option) ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="col-md-9">
-                        <input class="form-control" name="sample_answer" value="<?= e($question['sample_answer']) ?>" placeholder="Gợi ý đáp án tự luận">
+                    <div class="col-md-6 <?= $isEssay ? '' : 'd-none' ?>" data-essay-hint>
+                        <input class="form-control" name="sample_answer" value="<?= e($question['sample_answer']) ?>" placeholder="Gợi ý">
                     </div>
                 </div>
                 <div class="mt-3 d-flex gap-2">
@@ -230,5 +245,38 @@ if ($lessonId > 0) {
         <?php endforeach; ?>
     </section>
 <?php endif; ?>
+
+<script>
+document.querySelectorAll('[data-quiz-question-form]').forEach((form) => {
+    const typeSelect = form.querySelector('[data-question-type]');
+
+    if (!typeSelect) {
+        return;
+    }
+
+    const toggleControl = (field, visible) => {
+        if (!field) {
+            return;
+        }
+
+        field.classList.toggle('d-none', !visible);
+        field.querySelectorAll('input, select, textarea').forEach((control) => {
+            control.disabled = !visible;
+        });
+    };
+
+    const syncQuestionType = () => {
+        const isEssay = typeSelect.value === 'essay';
+
+        form.querySelectorAll('[data-choice-field]').forEach((field) => toggleControl(field, !isEssay));
+        toggleControl(form.querySelector('[data-choice-answer]'), !isEssay);
+        toggleControl(form.querySelector('[data-essay-field]'), isEssay);
+        toggleControl(form.querySelector('[data-essay-hint]'), isEssay);
+    };
+
+    typeSelect.addEventListener('change', syncQuestionType);
+    syncQuestionType();
+});
+</script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

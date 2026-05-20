@@ -18,7 +18,7 @@ $products = array_slice(all_physical_products(), 0, 4);
         <div class="hero-banner">
             <div>
                 <span class="hero-kicker">Học lập trình để đi làm</span>
-                <h1>Khóa học lập trình web thực chiến</h1>
+                <h1>Khóa học lập trình thực chiến</h1>
                 <p>Học PHP, MySQL, JavaScript, React và Laravel qua dự án thật. Có bài tập, quiz, compiler, tài liệu và lộ trình học theo chương.</p>
                 <a class="btn btn-light text-primary fw-semibold" href="<?= url('courses') ?>">Khám phá khóa học</a>
             </div>
@@ -85,7 +85,7 @@ echo "Hello " . $name;</code></pre>
 <section class="container home-section">
     <div class="section-title">
         <h2>Sách, giáo trình & quà lưu niệm</h2>
-        <span>Tài liệu giấy, PDF và vật phẩm học viên</span>
+        <a href="<?= url('products') ?>">Xem tất cả</a>
     </div>
     <div class="product-grid">
         <?php foreach ($products as $product): ?>

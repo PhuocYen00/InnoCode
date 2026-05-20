@@ -1139,6 +1139,8 @@ function quiz_questions_for(int $courseId, int $lessonIndex): array
                     return [
                         'type' => 'essay',
                         'question' => $row['question'],
+                        'correct_answer' => $row['option_a'] ?? '',
+                        'hint' => $row['sample_answer'] ?? '',
                         'sample_answer' => $row['sample_answer'] ?? '',
                     ];
                 }
@@ -1184,6 +1186,8 @@ function quiz_questions_for(int $courseId, int $lessonIndex): array
         [
             'type' => 'essay',
             'question' => 'Mô tả ngắn quy trình mở khóa khóa học sau khi thanh toán thành công.',
+            'correct_answer' => '',
+            'hint' => '',
         ],
     ];
 }

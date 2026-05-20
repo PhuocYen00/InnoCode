@@ -277,6 +277,14 @@ a {
     grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.product-listing-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.catalog-filter {
+    border: 1px solid var(--line);
+}
+
 .product-card {
     background: #fff;
     border: 1px solid var(--line);

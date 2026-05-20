@@ -4,6 +4,7 @@ require_once __DIR__ . '/includes/header.php';
 
 $courseId = (int) ($_GET['id'] ?? $_POST['course_id'] ?? 0);
 $course = find_course($courseId, false);
+$returnPath = admin_return_path();
 
 if (!$course) {
     flash('error', 'Không tìm thấy khóa học.');
@@ -140,7 +141,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash('error', $exception->getMessage());
     }
 
-    redirect('admin/course_content.php?id=' . $courseId);
+    redirect('admin/course_content.php?id=' . $courseId . '&return=' . urlencode($returnPath));
 }
 
 $chapterStmt = db()->prepare('SELECT * FROM course_chapters WHERE course_id = ? ORDER BY sort_order, id');
@@ -155,7 +156,7 @@ $materialStmt = db()->prepare('SELECT * FROM lesson_materials WHERE lesson_id = 
         <h1 class="h2 mb-0">Soạn nội dung khóa học</h1>
         <p class="text-muted mb-0"><?= e($course['title']) ?></p>
     </div>
-    <a class="btn btn-outline-secondary" href="<?= APP_URL ?>/admin/courses.php">Quay lại</a>
+    <a class="btn btn-outline-secondary" href="<?= APP_URL ?>/<?= e($returnPath) ?>">Quay lại</a>
 </div>
 
 <div class="alert alert-info">
