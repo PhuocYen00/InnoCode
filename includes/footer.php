@@ -30,42 +30,77 @@
 <div class="cart-toast" id="cart-toast" role="status" aria-live="polite">Đã thêm vào giỏ hàng.</div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+async function saveLessonNote(noteForm, submitButton = null) {
+    const button = submitButton || noteForm.querySelector('button[type="submit"]');
+    const oldText = button ? button.textContent : '';
+    let status = noteForm.querySelector('.note-save-status');
+    if (!status) {
+        status = document.createElement('span');
+        status.className = 'note-save-status';
+        noteForm.querySelector('.lesson-action-row')?.appendChild(status);
+    }
+    if (button) {
+        button.disabled = true;
+        button.textContent = 'Đang lưu...';
+    }
+
+    try {
+        const formData = new FormData(noteForm);
+        formData.set('ajax', '1');
+        const response = await fetch(noteForm.action, {
+            method: 'POST',
+            body: formData,
+            headers: {'X-Requested-With': 'XMLHttpRequest'}
+        });
+        const data = await response.json();
+        if (!response.ok || !data.ok) {
+            throw new Error(data.message || 'Không lưu được ghi chú.');
+        }
+        status.textContent = data.message || 'Đã lưu ghi chú.';
+        status.classList.remove('text-danger');
+        status.classList.add('text-success');
+        return true;
+    } catch (error) {
+        status.textContent = 'Không lưu được ghi chú. Đang tải lại để lưu theo cách thường...';
+        status.classList.remove('text-success');
+        status.classList.add('text-danger');
+        return false;
+    } finally {
+        if (button) {
+            button.disabled = false;
+            button.textContent = oldText;
+        }
+    }
+}
+
+document.addEventListener('click', async function (event) {
+    const downloadLink = event.target.closest('[data-note-download]');
+    if (!downloadLink) {
+        return;
+    }
+
+    const noteForm = downloadLink.closest('.js-note-form');
+    if (!noteForm) {
+        return;
+    }
+
+    event.preventDefault();
+    const saved = await saveLessonNote(noteForm);
+    if (saved) {
+        window.location.href = downloadLink.href;
+    } else {
+        noteForm.submit();
+    }
+});
+
 document.addEventListener('submit', async function (event) {
     const noteForm = event.target.closest('.js-note-form');
     if (noteForm) {
         event.preventDefault();
-        const button = noteForm.querySelector('button[type="submit"]');
-        const oldText = button ? button.textContent : '';
-        let status = noteForm.querySelector('.note-save-status');
-        if (!status) {
-            status = document.createElement('span');
-            status.className = 'note-save-status';
-            noteForm.querySelector('.lesson-action-row')?.appendChild(status);
-        }
-        if (button) {
-            button.disabled = true;
-            button.textContent = 'Đang lưu...';
-        }
-        try {
-            const formData = new FormData(noteForm);
-            formData.set('ajax', '1');
-            const response = await fetch(noteForm.action, {
-                method: 'POST',
-                body: formData,
-                headers: {'X-Requested-With': 'XMLHttpRequest'}
-            });
-            const data = await response.json();
-            status.textContent = data.message || 'Đã lưu ghi chú.';
-            status.classList.toggle('text-success', !!data.ok);
-            status.classList.toggle('text-danger', !data.ok);
-        } catch (error) {
-            status.textContent = 'Không lưu được ghi chú. Vui lòng thử lại.';
-            status.classList.add('text-danger');
-        } finally {
-            if (button) {
-                button.disabled = false;
-                button.textContent = oldText;
-            }
+        const button = event.submitter || noteForm.querySelector('button[type="submit"]');
+        const saved = await saveLessonNote(noteForm, button);
+        if (!saved) {
+            noteForm.submit();
         }
         return;
     }
@@ -80,7 +115,7 @@ document.addEventListener('submit', async function (event) {
     const oldText = button ? button.textContent : '';
     if (button) {
         button.disabled = true;
-        button.textContent = 'Đang thêm...';
+        button.textContent = '\u0110ang th\u00eam...';
     }
 
     try {
@@ -101,7 +136,7 @@ document.addEventListener('submit', async function (event) {
             }
             const toast = document.getElementById('cart-toast');
             if (toast) {
-                toast.textContent = data.message || 'Đã thêm vào giỏ hàng.';
+                toast.textContent = data.message || '\u0110\u00e3 th\u00eam v\u00e0o gi\u1ecf h\u00e0ng.';
                 toast.classList.add('show');
                 setTimeout(() => toast.classList.remove('show'), 2200);
             }
@@ -115,6 +150,7 @@ document.addEventListener('submit', async function (event) {
         }
     }
 });
+
 
 document.querySelectorAll('[data-theme-toggle]').forEach(function (button) {
     const sync = function () {

@@ -27,6 +27,7 @@ $currentAdminPage = basename($_SERVER['SCRIPT_NAME'] ?? '');
                 <a class="<?= $currentAdminPage === 'categories.php' ? 'active' : '' ?>" href="<?= APP_URL ?>/admin/categories.php">Danh mục</a>
                 <a class="<?= $currentAdminPage === 'quizzes.php' ? 'active' : '' ?>" href="<?= APP_URL ?>/admin/quizzes.php">Quiz</a>
                 <a class="<?= $currentAdminPage === 'quiz_attempts.php' ? 'active' : '' ?>" href="<?= APP_URL ?>/admin/quiz_attempts.php">Bài làm</a>
+                <a class="<?= in_array($currentAdminPage, ['practice_submissions.php', 'download_submission.php'], true) ? 'active' : '' ?>" href="<?= APP_URL ?>/admin/practice_submissions.php">Bài thực hành</a>
             </details>
             <details class="admin-nav-group">
                 <summary>Thương mại</summary>

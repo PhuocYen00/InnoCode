@@ -11,10 +11,10 @@ $sampleCodes = [];
 foreach (array_keys($languages) as $languageKey) {
     $sampleCodes[$languageKey] = compiler_sample_code($languageKey);
 }
-$compilerCode = (string) ($_SESSION['compiler_code'] ?? compiler_sample_code($compilerLanguage));
-$compilerStdin = (string) ($_SESSION['compiler_stdin'] ?? '');
+$compilerCode = compiler_sample_code($compilerLanguage);
+$compilerStdin = '';
 $isPreviewResult = is_array($compilerResult) && !empty($compilerResult['preview']);
-unset($_SESSION['compiler_result'], $_SESSION['compiler_stdin']);
+unset($_SESSION['compiler_result'], $_SESSION['compiler_code'], $_SESSION['compiler_stdin']);
 
 $pageTitle = 'Trình biên dịch code - ' . APP_NAME;
 require_once dirname(__DIR__) . '/includes/header.php';

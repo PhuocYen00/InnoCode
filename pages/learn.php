@@ -28,15 +28,18 @@ $currentLesson = $flatLessons[$lessonIndex];
 $progress = lesson_progress((int) $course['id'], $lessonIndex);
 $questions = lesson_questions((int) $course['id'], $lessonIndex);
 $materials = lesson_materials_for((int) $course['id'], $lessonIndex);
+$submissionStmt = db()->prepare('SELECT * FROM lesson_submissions WHERE user_id = ? AND course_id = ? AND lesson_index = ? ORDER BY created_at DESC, id DESC LIMIT 1');
+$submissionStmt->execute([(int) current_user()['id'], (int) $course['id'], $lessonIndex]);
+$latestSubmission = $submissionStmt->fetch() ?: null;
 $compilerResult = $_SESSION['compiler_result'] ?? null;
 $compilerLanguage = (string) ($_SESSION['compiler_language'] ?? 'php');
-$compilerCode = (string) ($_SESSION['compiler_code'] ?? compiler_sample_code($compilerLanguage));
+$compilerCode = compiler_sample_code($compilerLanguage);
 $compilerSamples = [];
 foreach (array_keys(compiler_available_languages()) as $languageKey) {
     $compilerSamples[$languageKey] = compiler_sample_code($languageKey);
 }
 $isPreviewResult = is_array($compilerResult) && !empty($compilerResult['preview']);
-unset($_SESSION['compiler_result']);
+unset($_SESSION['compiler_result'], $_SESSION['compiler_code'], $_SESSION['compiler_stdin']);
 
 require_once dirname(__DIR__) . '/includes/header.php';
 ?>
@@ -77,7 +80,7 @@ require_once dirname(__DIR__) . '/includes/header.php';
                 <textarea class="form-control note-textarea" name="note" rows="5" placeholder="Ghi chú tại đây"><?= e($progress['note'] ?? '') ?></textarea>
                 <div class="lesson-action-row">
                     <button class="btn btn-primary" name="action" value="save_note" type="submit">Lưu ghi chú</button>
-                    <a class="btn btn-outline-primary" href="<?= url('download_note') ?>&course_id=<?= (int) $course['id'] ?>&lesson=<?= $lessonIndex ?>">Lưu file .txt</a>
+                    <a class="btn btn-outline-primary" data-note-download href="<?= url('download_note') ?>&course_id=<?= (int) $course['id'] ?>&lesson=<?= $lessonIndex ?>">Lưu file .txt</a>
                 </div>
             </form>
 
@@ -113,10 +116,23 @@ require_once dirname(__DIR__) . '/includes/header.php';
                         <small>Gửi source code để giảng viên kiểm tra.</small>
                     </div>
                     <p>Viết một hàm xử lý dữ liệu theo nội dung bài học, sau đó nộp file source code.</p>
-                    <form class="practice-submit">
-                        <input class="form-control" type="file" name="source_file">
-                        <button class="btn btn-outline-primary" type="button">Nộp bài</button>
+                    <form class="practice-submit" method="post" action="<?= url('lesson_submission') ?>" enctype="multipart/form-data">
+                        <input type="hidden" name="course_id" value="<?= (int) $course['id'] ?>">
+                        <input type="hidden" name="lesson_index" value="<?= $lessonIndex ?>">
+                        <input class="form-control" type="file" name="source_file" required>
+                        <textarea class="form-control mt-2" name="note" rows="3" placeholder="Ghi chú thêm cho giảng viên nếu cần"></textarea>
+                        <button class="btn btn-outline-primary mt-2" type="submit">Nộp bài</button>
                     </form>
+                    <?php if ($latestSubmission): ?>
+                        <div class="submission-status mt-3">
+                            <small class="text-muted">Bài đã nộp gần nhất: <?= e($latestSubmission['original_name']) ?> · <?= e($latestSubmission['created_at']) ?></small>
+                            <?php if (!empty($latestSubmission['feedback'])): ?>
+                                <p class="answer-box mt-2 mb-0">Nhận xét: <?= e($latestSubmission['feedback']) ?></p>
+                            <?php else: ?>
+                                <p class="text-muted small mb-0">Đang chờ admin/giảng viên nhận xét.</p>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
                 </section>
 
                 <section class="lesson-card quiz-card">

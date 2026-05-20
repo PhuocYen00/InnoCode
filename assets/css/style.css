@@ -1982,6 +1982,38 @@ body,
     color: #94a3b8;
 }
 
+:root[data-theme="dark"] .compiler-workspace {
+    background: #0b1220;
+    border-color: #263244;
+    box-shadow: none;
+}
+
+:root[data-theme="dark"] .compiler-editor textarea,
+:root[data-theme="dark"] .code-area,
+:root[data-theme="dark"] .compiler-input-panel textarea.form-control {
+    background: #020617;
+    border-color: #263244;
+    color: #e5e7eb;
+    caret-color: #93c5fd;
+}
+
+:root[data-theme="dark"] .compiler-editor textarea::placeholder,
+:root[data-theme="dark"] .code-area::placeholder,
+:root[data-theme="dark"] .compiler-input-panel textarea.form-control::placeholder {
+    color: #64748b;
+}
+
+:root[data-theme="dark"] .compiler-result-panel,
+:root[data-theme="dark"] .compiler-output {
+    background: #020617;
+    border-color: #263244;
+    color: #bbf7d0;
+}
+
+:root[data-theme="dark"] .compiler-preview-frame {
+    background: #fff;
+}
+
 :root[data-theme="dark"] .btn-outline-secondary,
 :root[data-theme="dark"] .btn-outline-danger,
 :root[data-theme="dark"] .btn-outline-primary {
