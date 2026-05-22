@@ -46,8 +46,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $user = current_user();
 $courses = user_courses((int) $user['id']);
 $orders = user_orders((int) $user['id']);
-$paidOrders = array_filter($orders, static fn (array $order): bool => $order['status'] === 'paid');
-$totalSpent = array_sum(array_map(static fn (array $order): float => (float) $order['total_amount'], $paidOrders));
+$paidOrders = [];
+$totalSpent = 0;
+foreach ($orders as $order) {
+    if ($order['status'] === 'paid') {
+        $paidOrders[] = $order;
+        $totalSpent += (float) $order['total_amount'];
+    }
+}
 $pageTitle = 'Trang cá nhân - ' . APP_NAME;
 require_once dirname(__DIR__) . '/includes/header.php';
 ?>

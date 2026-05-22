@@ -137,6 +137,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([(int) $_POST['material_id'], $courseId]);
             flash('success', 'Đã xóa tài liệu.');
         }
+
+        if ($action === 'save_practice') {
+            $lessonId = (int) $_POST['lesson_id'];
+            $stmt = db()->prepare('SELECT course_lessons.id
+                FROM course_lessons
+                JOIN course_chapters ON course_chapters.id = course_lessons.chapter_id
+                WHERE course_lessons.id = ? AND course_chapters.course_id = ?');
+            $stmt->execute([$lessonId, $courseId]);
+
+            if (!$stmt->fetch()) {
+                throw new RuntimeException('Không tìm thấy bài học.');
+            }
+
+            $stmt = db()->prepare('SELECT id FROM lesson_practices WHERE lesson_id = ? LIMIT 1');
+            $stmt->execute([$lessonId]);
+            $practiceId = (int) $stmt->fetchColumn();
+
+            if ($practiceId > 0) {
+                $stmt = db()->prepare('UPDATE lesson_practices SET title = ?, instruction = ?, starter_code = ?, expected_output = ? WHERE id = ?');
+                $stmt->execute([trim((string) $_POST['practice_title']), trim((string) $_POST['instruction']), trim((string) $_POST['starter_code']), trim((string) $_POST['expected_output']), $practiceId]);
+            } else {
+                $stmt = db()->prepare('INSERT INTO lesson_practices (lesson_id, title, instruction, starter_code, expected_output) VALUES (?, ?, ?, ?, ?)');
+                $stmt->execute([$lessonId, trim((string) $_POST['practice_title']), trim((string) $_POST['instruction']), trim((string) $_POST['starter_code']), trim((string) $_POST['expected_output'])]);
+            }
+
+            flash('success', 'Đã lưu bài thực hành.');
+        }
     } catch (Throwable $exception) {
         flash('error', $exception->getMessage());
     }
@@ -149,6 +176,7 @@ $chapterStmt->execute([$courseId]);
 $chapters = $chapterStmt->fetchAll();
 $lessonStmt = db()->prepare('SELECT * FROM course_lessons WHERE chapter_id = ? ORDER BY unlock_order, id');
 $materialStmt = db()->prepare('SELECT * FROM lesson_materials WHERE lesson_id = ? ORDER BY id');
+$practiceStmt = db()->prepare('SELECT * FROM lesson_practices WHERE lesson_id = ? LIMIT 1');
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -252,6 +280,8 @@ $materialStmt = db()->prepare('SELECT * FROM lesson_materials WHERE lesson_id = 
             <?php
             $materialStmt->execute([(int) $lesson['id']]);
             $materials = $materialStmt->fetchAll();
+            $practiceStmt->execute([(int) $lesson['id']]);
+            $practice = $practiceStmt->fetch() ?: null;
             ?>
             <div class="border rounded-2 p-3 mb-3">
                 <form class="row g-3" method="post">
@@ -345,6 +375,34 @@ $materialStmt = db()->prepare('SELECT * FROM lesson_materials WHERE lesson_id = 
                         </div>
                         <div class="col-md-2">
                             <button class="btn btn-success w-100" type="submit">Thêm file</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="mt-3 border-top pt-3">
+                    <h3 class="h6">Bài thực hành của bài học</h3>
+                    <form class="row g-2" method="post">
+                        <input type="hidden" name="course_id" value="<?= $courseId ?>">
+                        <input type="hidden" name="lesson_id" value="<?= (int) $lesson['id'] ?>">
+                        <input type="hidden" name="action" value="save_practice">
+                        <div class="col-md-4">
+                            <label class="form-label">Tiêu đề</label>
+                            <input class="form-control" name="practice_title" value="<?= e($practice['title'] ?? 'Bài thực hành của bài học') ?>" required>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label">Yêu cầu</label>
+                            <textarea class="form-control" name="instruction" rows="2" required><?= e($practice['instruction'] ?? '') ?></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Code gợi ý</label>
+                            <textarea class="form-control" name="starter_code" rows="3"><?= e($practice['starter_code'] ?? '') ?></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Kết quả mong đợi</label>
+                            <textarea class="form-control" name="expected_output" rows="3"><?= e($practice['expected_output'] ?? '') ?></textarea>
+                        </div>
+                        <div class="col-12">
+                            <button class="btn btn-outline-primary" type="submit">Lưu bài thực hành</button>
                         </div>
                     </form>
                 </div>

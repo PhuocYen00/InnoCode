@@ -18,11 +18,19 @@ if ($order['status'] !== 'paid') {
 $items = order_items($orderId);
 $pageTitle = 'Biên lai #' . $orderId . ' - ' . APP_NAME;
 $paymentName = payment_methods()[$order['payment_method']] ?? $order['payment_method'];
-$subtotal = array_sum(array_map(static fn (array $item): float => (float) $item['price'] * (int) $item['quantity'], $items));
+$subtotal = 0;
+$deferredTotal = 0;
+foreach ($items as $item) {
+    $lineTotal = (float) $item['price'] * (int) $item['quantity'];
+    $subtotal += $lineTotal;
+
+    if (($item['payment_status'] ?? '') === 'pay_later') {
+        $deferredTotal += $lineTotal;
+    }
+}
 $discount = (float) ($order['discount_amount'] ?? 0);
 $total = (float) $order['total_amount'];
 $paidSubtotal = $total + $discount;
-$deferredTotal = array_sum(array_map(static fn (array $item): float => (($item['payment_status'] ?? '') === 'pay_later') ? (float) $item['price'] * (int) $item['quantity'] : 0, $items));
 $couponCode = (string) ($order['coupon_code'] ?? '');
 ?>
 <!doctype html>
@@ -274,7 +282,7 @@ $couponCode = (string) ($order['coupon_code'] ?? '');
         </div>
         <?php if ($deferredTotal > 0): ?>
             <div class="summary-row">
-                <span>Sách/quà tính sau</span>
+                <span>Sách/tài liệu tính sau</span>
                 <strong><?= money($deferredTotal) ?></strong>
             </div>
         <?php endif; ?>

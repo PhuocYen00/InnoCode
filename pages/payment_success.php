@@ -30,6 +30,9 @@ $method = $order['payment_method'] ?? 'bank';
 $methodName = payment_methods()[$method] ?? 'Thanh toán';
 $amount = (float) $order['total_amount'];
 $status = (string) $order['status'];
+$qrUrl = payment_qr_url($method, $orderId, $amount);
+$payosError = $_SESSION['payos_last_error'] ?? null;
+unset($_SESSION['payos_last_error']);
 require_once dirname(__DIR__) . '/includes/header.php';
 ?>
 
@@ -42,11 +45,16 @@ require_once dirname(__DIR__) . '/includes/header.php';
                     Thanh toán thành công
                 <?php elseif ($status === 'cancelled'): ?>
                     Thanh toán đã hủy
+                <?php elseif (!empty($order['payos_checkout_url'])): ?>
+                    Đơn hàng đang chờ thanh toán PayOS
                 <?php else: ?>
-                    Đơn hàng đang chờ xác nhận từ PayOS
+                    Đơn hàng đang chờ chuyển khoản
                 <?php endif; ?>
             </h1>
             <p class="text-muted">Phương thức: <?= e($methodName) ?>.</p>
+            <?php if ($payosError && $status === 'pending' && empty($order['payos_checkout_url'])): ?>
+                <div class="alert alert-warning">Không tạo được link PayOS: <?= e($payosError) ?>. Bạn vẫn có thể thanh toán bằng VietQR bên dưới.</div>
+            <?php endif; ?>
 
             <div class="payment-info">
                 <div>
@@ -67,9 +75,27 @@ require_once dirname(__DIR__) . '/includes/header.php';
                 </div>
             </div>
 
+            <?php if ($status === 'pending' && empty($order['payos_checkout_url'])): ?>
+                <div class="row g-4 mt-4 align-items-center">
+                    <div class="col-md-4">
+                        <img class="img-fluid rounded-2 border" src="<?= e($qrUrl ?: '') ?>" alt="VietQR thanh toán">
+                    </div>
+                    <div class="col-md-8">
+                        <h2 class="h5">Thông tin chuyển khoản</h2>
+                        <p class="mb-1"><strong>Ngân hàng:</strong> <?= e(BANK_NAME) ?></p>
+                        <p class="mb-1"><strong>Số tài khoản:</strong> <?= e(BANK_ACCOUNT_NUMBER) ?></p>
+                        <p class="mb-1"><strong>Chủ tài khoản:</strong> <?= e(BANK_ACCOUNT_NAME) ?></p>
+                        <p class="mb-1"><strong>Số tiền:</strong> <?= money($amount) ?></p>
+                        <p class="mb-0"><strong>Nội dung:</strong> <?= e($order['payment_code'] ?: order_payment_code($orderId)) ?></p>
+                        <p class="text-muted small mt-2 mb-0">Sau khi bạn chuyển khoản, admin xác nhận đơn trong trang quản trị để mở khóa khóa học hoặc tài liệu.</p>
+                    </div>
+                </div>
+            <?php endif; ?>
+
             <div class="d-flex gap-2 flex-wrap mt-4">
                 <?php if ($status === 'paid'): ?>
                     <a class="btn btn-primary" href="<?= url('my_courses') ?>">Vào khóa học của tôi</a>
+                    <a class="btn btn-outline-primary" href="<?= url('my_materials') ?>">Tài liệu của tôi</a>
                     <a class="btn btn-outline-primary" href="<?= url('receipt') ?>&id=<?= $orderId ?>">In biên lai</a>
                 <?php elseif ($status === 'cancelled'): ?>
                     <a class="btn btn-primary" href="<?= url('cart') ?>">Quay lại giỏ hàng</a>

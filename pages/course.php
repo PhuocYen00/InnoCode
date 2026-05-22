@@ -14,7 +14,12 @@ if (!$course) {
 $currentCourse = $course;
 $sections = course_sections($course);
 $lessonsCount = course_lessons_count($sections);
-$relatedCourses = array_filter(latest_courses(6), static fn (array $item): bool => (int) $item['id'] !== (int) $course['id']);
+$relatedCourses = [];
+foreach (latest_courses(6) as $item) {
+    if ((int) $item['id'] !== (int) $course['id']) {
+        $relatedCourses[] = $item;
+    }
+}
 $reviews = course_reviews((int) $course['id']);
 $averageRating = course_average_rating((int) $course['id']);
 ?>
@@ -63,10 +68,15 @@ $averageRating = course_average_rating((int) $course['id']);
                     <h2>Nội dung khóa học</h2>
                     <p><?= count($sections) ?> chương · <?= $lessonsCount ?> bài học · <?= e($course['duration_hours']) ?> giờ học</p>
                 </div>
-                <a href="<?= url('learn') ?>&id=<?= (int) $course['id'] ?>">Xem sau khi mua</a>
+                <?php if ($lessonsCount > 0): ?>
+                    <a href="<?= url('learn') ?>&id=<?= (int) $course['id'] ?>">Xem sau khi mua</a>
+                <?php endif; ?>
             </div>
 
             <div class="curriculum">
+                <?php if (!$sections): ?>
+                    <p class="text-muted mb-0">Khóa học này chưa có nội dung bài học. Quản trị viên sẽ cập nhật trong trang quản trị.</p>
+                <?php endif; ?>
                 <?php foreach ($sections as $sectionIndex => $section): ?>
                     <details <?= $sectionIndex === 0 ? 'open' : '' ?>>
                         <summary>
@@ -161,7 +171,11 @@ $averageRating = course_average_rating((int) $course['id']);
             <span class="small text-muted">Chi phí khóa học</span>
             <div class="buy-price"><?= is_free_course($course) ? 'Miễn phí' : money((float) $course['price']) ?></div>
             <?php if (has_purchased_course((int) $course['id'])): ?>
-                <a class="btn btn-success w-100" href="<?= url('learn') ?>&id=<?= (int) $course['id'] ?>">Vào học ngay</a>
+                <?php if ($lessonsCount > 0): ?>
+                    <a class="btn btn-success w-100" href="<?= url('learn') ?>&id=<?= (int) $course['id'] ?>">Vào học ngay</a>
+                <?php else: ?>
+                    <button class="btn btn-secondary w-100" type="button" disabled>Đang cập nhật nội dung</button>
+                <?php endif; ?>
             <?php else: ?>
                 <form method="post" action="<?= url('purchase_course') ?>" class="js-add-cart">
                     <input type="hidden" name="course_id" value="<?= (int) $course['id'] ?>">

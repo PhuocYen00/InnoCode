@@ -84,7 +84,7 @@ echo "Hello " . $name;</code></pre>
 
 <section class="container home-section">
     <div class="section-title">
-        <h2>Sách, giáo trình & quà lưu niệm</h2>
+        <h2>Sách & tài liệu</h2>
         <a href="<?= url('products') ?>">Xem tất cả</a>
     </div>
     <div class="product-grid">

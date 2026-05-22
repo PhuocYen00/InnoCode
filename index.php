@@ -35,6 +35,9 @@ $routes = [
     'verify_email' => 'verify_email.php',
     'verify_notice' => 'verify_notice.php',
     'my_courses' => 'my_courses.php',
+    'my_materials' => 'my_materials.php',
+    'gift_request' => 'gift_request.php',
+    'download_product' => 'download_product.php',
     'profile' => 'profile.php',
 ];
 

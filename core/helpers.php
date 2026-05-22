@@ -26,10 +26,11 @@ function page_from_path(string $path): string
     $pathOnly = strtok($path, '?') ?: $path;
     $name = basename($pathOnly, '.php');
 
-    return match ($name) {
-        '', 'index' => 'home',
-        default => $name,
-    };
+    if ($name === '' || $name === 'index') {
+        return 'home';
+    }
+
+    return $name;
 }
 
 function redirect(string $path): never
@@ -72,13 +73,14 @@ function active_nav(string $page): string
 
 function is_admin(): bool
 {
-    return ($_SESSION['admin_logged_in'] ?? false) === true;
+    $user = current_user();
+    return $user !== null && ($user['role'] ?? 'user') === 'admin';
 }
 
 function require_admin(): void
 {
     if (!is_admin()) {
-        redirect('admin/login.php');
+        redirect('login.php?next=' . urlencode('/admin/index.php'));
     }
 }
 
@@ -112,6 +114,10 @@ function require_login(): void
 
 function require_verified_email(): void
 {
+    if (is_admin()) {
+        return;
+    }
+
     $user = current_user();
 
     if (!$user || $user['email_verified_at'] === null) {
@@ -123,6 +129,7 @@ function require_verified_email(): void
 function login_user(array $user): void
 {
     $_SESSION['user_id'] = (int) $user['id'];
+    unset($_SESSION['admin_logged_in']);
 }
 
 function logout_user(): void
@@ -251,10 +258,10 @@ function all_categories(): array
 
 function all_physical_products(bool $activeOnly = true): array
 {
-    $sql = 'SELECT * FROM physical_products';
+    $sql = "SELECT * FROM physical_products WHERE product_type <> 'souvenir'";
 
     if ($activeOnly) {
-        $sql .= ' WHERE is_active = 1';
+        $sql .= ' AND is_active = 1';
     }
 
     $sql .= ' ORDER BY created_at DESC, id DESC';
@@ -423,8 +430,9 @@ function cart_items(): array
         ORDER BY cart_items.updated_at DESC');
     $stmt->execute([(int) current_user()['id']]);
 
-    $courseItems = array_map(static function (array $item): array {
-        return [
+    $courseItems = [];
+    foreach ($stmt->fetchAll() as $item) {
+        $courseItems[] = [
             'key' => cart_key('course', (int) $item['course_id']),
             'type' => 'course',
             'id' => (int) $item['course_id'],
@@ -435,7 +443,7 @@ function cart_items(): array
             'description' => ($item['level'] ?? '') . ' · ' . ($item['duration_hours'] ?? '') . ' giờ',
             'is_quantity_editable' => false,
         ];
-    }, $stmt->fetchAll());
+    }
 
     $stmt = db()->prepare('SELECT product_cart_items.product_id, product_cart_items.quantity, physical_products.*
         FROM product_cart_items
@@ -444,8 +452,9 @@ function cart_items(): array
         ORDER BY product_cart_items.updated_at DESC');
     $stmt->execute([(int) current_user()['id']]);
 
-    $productItems = array_map(static function (array $item): array {
-        return [
+    $productItems = [];
+    foreach ($stmt->fetchAll() as $item) {
+        $productItems[] = [
             'key' => cart_key('product', (int) $item['product_id']),
             'type' => 'product',
             'id' => (int) $item['product_id'],
@@ -456,7 +465,7 @@ function cart_items(): array
             'description' => product_type_label((string) $item['product_type']) . ' · Tồn kho: ' . (int) $item['stock'],
             'is_quantity_editable' => true,
         ];
-    }, $stmt->fetchAll());
+    }
 
     return array_merge($courseItems, $productItems);
 }
@@ -487,20 +496,14 @@ function cart_total(array $items): float
 
 function cart_has_physical_items(array $items): bool
 {
-    foreach ($items as $item) {
-        if (($item['type'] ?? '') === 'product') {
-            return true;
-        }
-    }
-
     return false;
 }
 
 function product_type_label(string $type): string
 {
     return [
-        'pdf' => 'Sách/PDF',
-        'printed_document' => 'Tài liệu giấy',
+        'pdf' => 'Sách điện tử',
+        'printed_document' => 'Tài liệu học tập',
         'souvenir' => 'Quà lưu niệm',
     ][$type] ?? $type;
 }
@@ -515,27 +518,7 @@ function short_text(string $value, int $limit): string
 
 function course_sections(array $course): array
 {
-    $dbSections = course_db_sections((int) $course['id']);
-
-    if ($dbSections) {
-        return $dbSections;
-    }
-
-    $title = strtolower((string) $course['title']);
-
-    if (str_contains($title, 'javascript')) {
-        return course_javascript_sections();
-    }
-
-    if (str_contains($title, 'react')) {
-        return course_react_sections();
-    }
-
-    if (str_contains($title, 'mysql')) {
-        return course_mysql_sections();
-    }
-
-    return course_default_sections();
+    return course_db_sections((int) $course['id']);
 }
 
 function course_db_sections(int $courseId): array
@@ -591,70 +574,6 @@ function course_flat_lessons(array $course): array
     return $flat;
 }
 
-function course_javascript_sections(): array
-{
-    return [
-        ['title' => '1. Nền tảng JavaScript', 'lessons' => [
-            ['title' => 'Tổng quan khóa học', 'duration' => '04:18'],
-            ['title' => 'Biến, kiểu dữ liệu và toán tử', 'duration' => '18:42'],
-            ['title' => 'Function, scope và closure', 'duration' => '29:10'],
-        ]],
-        ['title' => '2. API và bất đồng bộ', 'lessons' => [
-            ['title' => 'Promise và async/await', 'duration' => '31:06'],
-            ['title' => 'Fetch API và JSON', 'duration' => '26:44'],
-            ['title' => 'Mini project Todo App', 'duration' => '42:20'],
-        ]],
-    ];
-}
-
-function course_react_sections(): array
-{
-    return [
-        ['title' => '1. React căn bản', 'lessons' => [
-            ['title' => 'React giải quyết vấn đề gì?', 'duration' => '07:25'],
-            ['title' => 'Component, props và JSX', 'duration' => '22:10'],
-            ['title' => 'State và sự kiện', 'duration' => '27:40'],
-        ]],
-        ['title' => '2. Hooks và dự án', 'lessons' => [
-            ['title' => 'useState và useEffect', 'duration' => '35:18'],
-            ['title' => 'Gọi API trong React', 'duration' => '28:55'],
-            ['title' => 'Build và deploy', 'duration' => '33:12'],
-        ]],
-    ];
-}
-
-function course_mysql_sections(): array
-{
-    return [
-        ['title' => '1. Thiết kế database', 'lessons' => [
-            ['title' => 'Bảng và khóa chính', 'duration' => '16:22'],
-            ['title' => 'Khóa ngoại và quan hệ', 'duration' => '24:45'],
-            ['title' => 'Database cho website bán hàng', 'duration' => '38:10'],
-        ]],
-        ['title' => '2. Truy vấn dữ liệu', 'lessons' => [
-            ['title' => 'JOIN và GROUP BY', 'duration' => '34:18'],
-            ['title' => 'Index cơ bản', 'duration' => '27:06'],
-            ['title' => 'Transaction đặt hàng', 'duration' => '21:55'],
-        ]],
-    ];
-}
-
-function course_default_sections(): array
-{
-    return [
-        ['title' => '1. Khởi động dự án', 'lessons' => [
-            ['title' => 'Giới thiệu lộ trình học', 'duration' => '05:30'],
-            ['title' => 'Cài đặt môi trường', 'duration' => '18:25'],
-            ['title' => 'Tư duy xây dựng website', 'duration' => '20:40'],
-        ]],
-        ['title' => '2. Xây dựng chức năng', 'lessons' => [
-            ['title' => 'Kết nối MySQL', 'duration' => '29:12'],
-            ['title' => 'Danh sách và chi tiết', 'duration' => '32:05'],
-            ['title' => 'Giỏ hàng và thanh toán', 'duration' => '41:30'],
-        ]],
-    ];
-}
-
 function course_lessons_count(array $sections): int
 {
     $total = 0;
@@ -691,6 +610,10 @@ function course_requirements(array $course): array
 function course_video_key(array $course): string
 {
     $title = strtolower((string) $course['title']);
+
+    if (str_contains($title, 'sql') || str_contains($title, 'database')) {
+        return 'mysql';
+    }
 
     foreach (array_keys(course_video_map()) as $key) {
         if (str_contains($title, $key)) {
@@ -736,6 +659,10 @@ function mark_course_purchased(int $courseId, ?int $orderId = null, ?int $userId
 
 function has_purchased_course(int $courseId, ?int $userId = null): bool
 {
+    if (is_admin()) {
+        return true;
+    }
+
     $userId = $userId ?? (int) (current_user()['id'] ?? 0);
 
     if ($userId <= 0) {
@@ -746,6 +673,79 @@ function has_purchased_course(int $courseId, ?int $userId = null): bool
     $stmt->execute([$userId, $courseId]);
 
     return (int) $stmt->fetchColumn() > 0;
+}
+
+function course_is_completed(int $courseId, ?int $userId = null): bool
+{
+    $course = find_course($courseId, false);
+
+    if (!$course) {
+        return false;
+    }
+
+    $lessonsCount = count(course_flat_lessons($course));
+    if ($lessonsCount === 0) {
+        return false;
+    }
+
+    $userId = $userId ?? (int) (current_user()['id'] ?? 0);
+    if ($userId <= 0) {
+        return false;
+    }
+
+    $stmt = db()->prepare('SELECT COUNT(*) FROM course_lesson_progress WHERE user_id = ? AND course_id = ? AND is_completed = 1');
+    $stmt->execute([$userId, $courseId]);
+
+    return (int) $stmt->fetchColumn() >= $lessonsCount;
+}
+
+function souvenir_products(bool $activeOnly = true): array
+{
+    $sql = "SELECT * FROM physical_products WHERE product_type = 'souvenir'";
+
+    if ($activeOnly) {
+        $sql .= ' AND is_active = 1';
+    }
+
+    $sql .= ' ORDER BY created_at DESC, id DESC';
+
+    return db()->query($sql)->fetchAll();
+}
+
+function gift_request_for(int $userId, int $courseId): ?array
+{
+    $stmt = db()->prepare('SELECT gift_requests.*, physical_products.name AS product_name
+        FROM gift_requests
+        JOIN physical_products ON physical_products.id = gift_requests.product_id
+        WHERE gift_requests.user_id = ? AND gift_requests.course_id = ?
+        LIMIT 1');
+    $stmt->execute([$userId, $courseId]);
+    $request = $stmt->fetch();
+
+    return $request ?: null;
+}
+
+function gift_status_label(string $status): string
+{
+    return [
+        'pending' => 'Đang chờ xác nhận',
+        'confirmed' => 'Đã xác nhận',
+        'shipping' => 'Đã giao cho vận chuyển',
+        'delivered' => 'Đã vận chuyển',
+    ][$status] ?? $status;
+}
+
+function user_materials(int $userId): array
+{
+    $stmt = db()->prepare("SELECT physical_order_items.*, physical_products.description, physical_products.image_url, physical_products.digital_file_url, orders.paid_at
+        FROM physical_order_items
+        JOIN orders ON orders.id = physical_order_items.order_id
+        JOIN physical_products ON physical_products.id = physical_order_items.product_id
+        WHERE orders.user_id = ? AND orders.status = 'paid' AND physical_products.product_type <> 'souvenir'
+        ORDER BY orders.paid_at DESC, physical_order_items.id DESC");
+    $stmt->execute([$userId]);
+
+    return $stmt->fetchAll();
 }
 
 function complete_order(int $orderId): void
@@ -808,20 +808,22 @@ function order_items(int $orderId): array
         WHERE order_items.order_id = ?');
     $stmt->execute([$orderId]);
 
-    $courseItems = array_map(static function (array $item): array {
+    $courseItems = [];
+    foreach ($stmt->fetchAll() as $item) {
         $item['type'] = 'course';
-        return $item;
-    }, $stmt->fetchAll());
+        $courseItems[] = $item;
+    }
 
     $stmt = db()->prepare('SELECT physical_order_items.*, product_name AS title, NULL AS image_url, NULL AS level, NULL AS duration_hours
         FROM physical_order_items
         WHERE order_id = ?');
     $stmt->execute([$orderId]);
 
-    $productItems = array_map(static function (array $item): array {
+    $productItems = [];
+    foreach ($stmt->fetchAll() as $item) {
         $item['type'] = 'product';
-        return $item;
-    }, $stmt->fetchAll());
+        $productItems[] = $item;
+    }
 
     return array_merge($courseItems, $productItems);
 }
@@ -919,6 +921,7 @@ function payos_signature(array $data): string
 function payos_create_payment_link(array $order, array $items): ?string
 {
     if (PAYOS_CLIENT_ID === '' || PAYOS_API_KEY === '' || PAYOS_CHECKSUM_KEY === '' || !function_exists('curl_init')) {
+        $_SESSION['payos_last_error'] = 'PayOS chưa được cấu hình hoặc PHP chưa bật curl.';
         return null;
     }
 
@@ -937,17 +940,22 @@ function payos_create_payment_link(array $order, array $items): ?string
         'returnUrl' => $returnUrl,
     ]);
 
+    $payosItems = [];
+    foreach ($items as $item) {
+        $payosItems[] = [
+            'name' => short_text((string) $item['title'], 90),
+            'quantity' => (int) $item['quantity'],
+            'price' => (int) round((float) $item['price']),
+        ];
+    }
+
     $payload = [
         'orderCode' => $orderCode,
         'amount' => $amount,
         'description' => $description,
         'returnUrl' => $returnUrl,
         'cancelUrl' => $cancelUrl,
-        'items' => array_map(static fn (array $item): array => [
-            'name' => short_text((string) $item['title'], 90),
-            'quantity' => (int) $item['quantity'],
-            'price' => (int) round((float) $item['price']),
-        ], $items),
+        'items' => $payosItems,
         'signature' => $signature,
     ];
 
@@ -965,12 +973,22 @@ function payos_create_payment_link(array $order, array $items): ?string
     ]);
 
     $response = curl_exec($curl);
+    $error = curl_error($curl);
+    $status = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
     curl_close($curl);
 
     $result = is_string($response) ? json_decode($response, true) : null;
     $data = is_array($result) ? ($result['data'] ?? $result) : null;
 
     if (!is_array($data)) {
+        $_SESSION['payos_last_error'] = $error !== ''
+            ? 'Không kết nối được PayOS: ' . $error
+            : 'PayOS trả về dữ liệu không hợp lệ.';
+        return null;
+    }
+
+    if ($status >= 400 || (($result['code'] ?? '00') !== '00' && empty($data['checkoutUrl']))) {
+        $_SESSION['payos_last_error'] = (string) ($result['desc'] ?? $result['message'] ?? 'PayOS từ chối yêu cầu thanh toán.');
         return null;
     }
 
@@ -979,6 +997,7 @@ function payos_create_payment_link(array $order, array $items): ?string
 
     $stmt = db()->prepare('UPDATE orders SET payment_provider = ?, payos_order_code = ?, payos_payment_link_id = ?, payos_checkout_url = ? WHERE id = ?');
     $stmt->execute(['payos', $orderCode, $paymentLinkId, $checkoutUrl, $orderId]);
+    unset($_SESSION['payos_last_error']);
 
     return is_string($checkoutUrl) ? $checkoutUrl : null;
 }
@@ -1054,6 +1073,10 @@ function lesson_progress(int $courseId, int $lessonIndex): ?array
 
 function is_lesson_unlocked(int $courseId, int $lessonIndex): bool
 {
+    if (is_admin()) {
+        return true;
+    }
+
     if ($lessonIndex <= 0) {
         return true;
     }
@@ -1094,28 +1117,27 @@ function lesson_materials_for(int $courseId, int $lessonIndex): array
         $stmt->execute([$lessonId]);
         $materials = $stmt->fetchAll();
 
-        if ($materials) {
-            return $materials;
-        }
+        return $materials;
     }
 
-    return [
-        [
-            'type' => 'pdf',
-            'title' => 'PDF bài học',
-            'filename' => 'php-intro.pdf',
-        ],
-        [
-            'type' => 'source',
-            'title' => 'Source code mẫu',
-            'filename' => 'source-mau.php',
-        ],
-        [
-            'type' => 'slide',
-            'title' => 'Slide tóm tắt',
-            'filename' => 'slide-tom-tat.txt',
-        ],
-    ];
+    return [];
+}
+
+function lesson_practice_for(int $courseId, int $lessonIndex): ?array
+{
+    $course = find_course($courseId, false);
+    $lesson = $course ? (course_flat_lessons($course)[$lessonIndex] ?? null) : null;
+    $lessonId = (int) ($lesson['id'] ?? 0);
+
+    if ($lessonId > 0) {
+        $stmt = db()->prepare('SELECT * FROM lesson_practices WHERE lesson_id = ? ORDER BY id LIMIT 1');
+        $stmt->execute([$lessonId]);
+        $practice = $stmt->fetch();
+
+        return $practice ?: null;
+    }
+
+    return null;
 }
 
 function quiz_questions_for(int $courseId, int $lessonIndex): array
@@ -1134,18 +1156,21 @@ function quiz_questions_for(int $courseId, int $lessonIndex): array
         $rows = $stmt->fetchAll();
 
         if ($rows) {
-            return array_map(static function (array $row): array {
+            $questions = [];
+
+            foreach ($rows as $row) {
                 if (($row['question_type'] ?? 'choice') === 'essay') {
-                    return [
+                    $questions[] = [
                         'type' => 'essay',
                         'question' => $row['question'],
                         'correct_answer' => $row['option_a'] ?? '',
                         'hint' => $row['sample_answer'] ?? '',
                         'sample_answer' => $row['sample_answer'] ?? '',
                     ];
+                    continue;
                 }
 
-                return [
+                $questions[] = [
                     'type' => 'choice',
                     'question' => $row['question'],
                     'options' => [
@@ -1156,40 +1181,13 @@ function quiz_questions_for(int $courseId, int $lessonIndex): array
                     ],
                     'answer' => strtolower((string) $row['correct_option']),
                 ];
-            }, $rows);
+            }
+
+            return $questions;
         }
     }
 
-    return [
-        [
-            'type' => 'choice',
-            'question' => 'Trong PHP, PDO thường dùng để làm gì?',
-            'options' => [
-                'a' => 'Kết nối và truy vấn cơ sở dữ liệu',
-                'b' => 'Biên dịch JavaScript',
-                'c' => 'Thiết kế giao diện CSS',
-                'd' => 'Tạo ảnh PNG',
-            ],
-            'answer' => 'a',
-        ],
-        [
-            'type' => 'choice',
-            'question' => 'Khi xử lý thanh toán, vì sao cần webhook/IPN?',
-            'options' => [
-                'a' => 'Để đổi màu giao diện',
-                'b' => 'Để nhận xác nhận thanh toán tự động từ cổng thanh toán',
-                'c' => 'Để xóa toàn bộ giỏ hàng của mọi người',
-                'd' => 'Để tắt đăng nhập',
-            ],
-            'answer' => 'b',
-        ],
-        [
-            'type' => 'essay',
-            'question' => 'Mô tả ngắn quy trình mở khóa khóa học sau khi thanh toán thành công.',
-            'correct_answer' => '',
-            'hint' => '',
-        ],
-    ];
+    return [];
 }
 
 function compiler_languages(): array
@@ -1229,7 +1227,13 @@ function compiler_command_available(string $command): bool
     fclose($pipes[2]);
     $exitCode = proc_close($process);
 
-    return $cache[$command] = ($exitCode === 0 && trim((string) $output . (string) $error) !== '');
+    $text = trim((string) $output . (string) $error);
+
+    if ($command === 'python' && stripos($text, 'Microsoft\\WindowsApps\\python.exe') !== false) {
+        return $cache[$command] = false;
+    }
+
+    return $cache[$command] = ($exitCode === 0 && $text !== '');
 }
 
 function compiler_runtime_available(array $runtime): bool
@@ -1272,64 +1276,36 @@ function compiler_available_languages(): array
 
 function compiler_sample_code(string $language): string
 {
-    return match ($language) {
-        'html' => "<!DOCTYPE html>\n<html lang=\"vi\">\n<head>\n    <meta charset=\"UTF-8\">\n    <title>Demo HTML</title>\n    <style>\n        body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }\n        #dong-ho { color: #2563eb; font-size: 48px; }\n        button { margin: 4px; padding: 10px 18px; }\n    </style>\n</head>\n<body>\n    <h1>Đồng hồ đếm giây</h1>\n    <h2 id=\"dong-ho\">0</h2>\n    <button onclick=\"batDau()\">Bắt đầu</button>\n    <button onclick=\"dungLai()\">Dừng lại</button>\n    <button onclick=\"lamMoi()\">Làm mới</button>\n\n    <script>\n        let giay = 0;\n        let timer = null;\n\n        function capNhat() {\n            giay++;\n            document.getElementById('dong-ho').textContent = giay;\n        }\n\n        function batDau() {\n            if (!timer) timer = setInterval(capNhat, 1000);\n        }\n\n        function dungLai() {\n            clearInterval(timer);\n            timer = null;\n        }\n\n        function lamMoi() {\n            dungLai();\n            giay = 0;\n            document.getElementById('dong-ho').textContent = giay;\n        }\n    </script>\n</body>\n</html>\n",
-        'python' => "print('Hello InnoCode')\n",
-        'javascript' => "console.log('Hello InnoCode');\n",
-        'c' => "#include <stdio.h>\n\nint main(void) {\n    printf(\"Hello InnoCode\");\n    return 0;\n}\n",
-        'cpp' => "#include <iostream>\n\nint main() {\n    std::cout << \"Hello InnoCode\";\n    return 0;\n}\n",
-        'java' => "public class Main {\n    public static void main(String[] args) {\n        System.out.print(\"Hello InnoCode\");\n    }\n}\n",
-        default => "<?php\necho \"Hello InnoCode\";\n",
-    };
+    if ($language === 'html') {
+        return "<!DOCTYPE html>\n<html lang=\"vi\">\n<head>\n    <meta charset=\"UTF-8\">\n    <title>Demo HTML</title>\n    <style>\n        body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }\n        #dong-ho { color: #2563eb; font-size: 48px; }\n        button { margin: 4px; padding: 10px 18px; }\n    </style>\n</head>\n<body>\n    <h1>Đồng hồ đếm giây</h1>\n    <h2 id=\"dong-ho\">0</h2>\n    <button onclick=\"batDau()\">Bắt đầu</button>\n    <button onclick=\"dungLai()\">Dừng lại</button>\n    <button onclick=\"lamMoi()\">Làm mới</button>\n\n    <script>\n        let giay = 0;\n        let timer = null;\n\n        function capNhat() {\n            giay++;\n            document.getElementById('dong-ho').textContent = giay;\n        }\n\n        function batDau() {\n            if (!timer) timer = setInterval(capNhat, 1000);\n        }\n\n        function dungLai() {\n            clearInterval(timer);\n            timer = null;\n        }\n\n        function lamMoi() {\n            dungLai();\n            giay = 0;\n            document.getElementById('dong-ho').textContent = giay;\n        }\n    </script>\n</body>\n</html>\n";
+    }
+
+    if ($language === 'python') {
+        return "print('Hello InnoCode')\n";
+    }
+
+    if ($language === 'javascript') {
+        return "console.log('Hello InnoCode');\n";
+    }
+
+    if ($language === 'c') {
+        return "#include <stdio.h>\n\nint main(void) {\n    printf(\"Hello InnoCode\");\n    return 0;\n}\n";
+    }
+
+    if ($language === 'cpp') {
+        return "#include <iostream>\n\nint main() {\n    std::cout << \"Hello InnoCode\";\n    return 0;\n}\n";
+    }
+
+    if ($language === 'java') {
+        return "public class Main {\n    public static void main(String[] args) {\n        System.out.print(\"Hello InnoCode\");\n    }\n}\n";
+    }
+
+    return "<?php\necho \"Hello InnoCode\";\n";
 }
 
 function run_code(string $language, string $code): array
 {
     return run_code_multi($language, $code);
-
-    $languages = compiler_languages();
-
-    if (!isset($languages[$language])) {
-        return ['ok' => false, 'output' => 'Ngôn ngữ chưa được hỗ trợ.'];
-    }
-
-    $dir = dirname(__DIR__) . '/storage/compiler';
-    if (!is_dir($dir)) {
-        mkdir($dir, 0777, true);
-    }
-
-    $runtime = $languages[$language];
-    $file = $dir . '/' . uniqid('run_', true) . '_' . $runtime['file'];
-    file_put_contents($file, $code);
-
-    $command = array_map(static fn (string $part): string => $part === '{file}' ? $file : $part, $runtime['command']);
-    $descriptors = [
-        0 => ['pipe', 'r'],
-        1 => ['pipe', 'w'],
-        2 => ['pipe', 'w'],
-    ];
-
-    $process = proc_open($command, $descriptors, $pipes, $dir);
-
-    if (!is_resource($process)) {
-        @unlink($file);
-        return ['ok' => false, 'output' => 'Không khởi động được trình biên dịch.'];
-    }
-
-    fclose($pipes[0]);
-    $output = stream_get_contents($pipes[1]);
-    $error = stream_get_contents($pipes[2]);
-    fclose($pipes[1]);
-    fclose($pipes[2]);
-    $exitCode = proc_close($process);
-    @unlink($file);
-
-    $text = trim((string) $output . ($error ? "\n" . $error : ''));
-
-    return [
-        'ok' => $exitCode === 0,
-        'output' => $text !== '' ? $text : '(Chương trình không in ra kết quả.)',
-    ];
 }
 
 function run_code_multi(string $language, string $code, string $stdin = ''): array
@@ -1384,14 +1360,21 @@ function run_code_multi(string $language, string $code, string $stdin = ''): arr
     };
 
     $buildCommand = static function (array $command) use ($file, $exe, $dir): array {
-        return array_map(static function (string $part) use ($file, $exe, $dir): string {
-            return match ($part) {
-                '{file}' => $file,
-                '{exe}' => $exe,
-                '{dir}' => $dir,
-                default => $part,
-            };
-        }, $command);
+        $result = [];
+
+        foreach ($command as $part) {
+            if ($part === '{file}') {
+                $result[] = $file;
+            } elseif ($part === '{exe}') {
+                $result[] = $exe;
+            } elseif ($part === '{dir}') {
+                $result[] = $dir;
+            } else {
+                $result[] = $part;
+            }
+        }
+
+        return $result;
     };
 
     $execute = static function (array $command, string $cwd, string $input = ''): array {
@@ -1452,6 +1435,11 @@ function compiler_format_result(string $language, array $result): array
 
     if ($language === 'python' && str_contains($output, "ModuleNotFoundError: No module named 'requests'")) {
         $result['output'] = "Python trên compiler hiện không cài thư viện requests.\n\nCách xử lý:\n- Dùng thư viện có sẵn như urllib.request cho ví dụ cơ bản.\n- Hoặc chạy code này trên máy cá nhân sau khi cài: pip install requests.\n- Lưu ý: compiler web này phù hợp với bài console cơ bản, không phù hợp để mở trình duyệt hoặc gọi API ngoài.";
+        return $result;
+    }
+
+    if ($language === 'python' && str_contains($output, 'Python was not found')) {
+        $result['output'] = "Máy chủ chưa cài Python thật trong PATH.\n\nWindows đang trỏ lệnh python tới Microsoft Store alias nên PHP không chạy được file .py.\n\nCách xử lý:\n1. Cài Python từ python.org.\n2. Khi cài, chọn Add python.exe to PATH.\n3. Tắt alias Microsoft Store tại Settings > Apps > Advanced app settings > App execution aliases.\n4. Khởi động lại Laragon/Apache rồi thử lại.";
         return $result;
     }
 

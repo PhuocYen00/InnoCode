@@ -43,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($action === 'add_product') {
-        $stmt = db()->prepare('SELECT id FROM physical_products WHERE id = ? AND is_active = 1 AND stock > 0');
+        $stmt = db()->prepare("SELECT id FROM physical_products WHERE id = ? AND is_active = 1 AND stock > 0 AND product_type <> 'souvenir'");
         $stmt->execute([$id]);
         if ($stmt->fetch()) {
             cart_add('product', $id);

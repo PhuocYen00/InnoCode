@@ -35,7 +35,8 @@ $currentAdminPage = basename($_SERVER['SCRIPT_NAME'] ?? '');
                 <a class="<?= in_array($currentAdminPage, ['orders.php', 'order_detail.php'], true) ? 'active' : '' ?>" href="<?= APP_URL ?>/admin/orders.php">Đơn hàng</a>
                 <a class="<?= $currentAdminPage === 'revenue.php' ? 'active' : '' ?>" href="<?= APP_URL ?>/admin/revenue.php">Thống kê doanh thu</a>
                 <a class="<?= $currentAdminPage === 'coupons.php' ? 'active' : '' ?>" href="<?= APP_URL ?>/admin/coupons.php">Coupon</a>
-                <a class="<?= $currentAdminPage === 'products.php' ? 'active' : '' ?>" href="<?= APP_URL ?>/admin/products.php">Sách & quà lưu niệm</a>
+                <a class="<?= $currentAdminPage === 'products.php' ? 'active' : '' ?>" href="<?= APP_URL ?>/admin/products.php">Sách & tài liệu</a>
+                <a class="<?= $currentAdminPage === 'gifts.php' ? 'active' : '' ?>" href="<?= APP_URL ?>/admin/gifts.php">Quà lưu niệm</a>
             </details>
             <details class="admin-nav-group" data-admin-nav-group="community">
                 <summary>Cộng đồng</summary>

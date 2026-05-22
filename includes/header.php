@@ -25,7 +25,7 @@
             <a class="<?= active_nav('index.php') ?>" href="<?= url('home') ?>">Trang chủ</a>
             <a class="<?= active_nav('about.php') ?>" href="<?= url('about') ?>">Giới thiệu</a>
             <a class="<?= active_nav('courses.php') ?>" href="<?= url('courses') ?>">Khóa học</a>
-            <a class="<?= active_nav('products.php') ?>" href="<?= url('products') ?>">Sách & quà</a>
+            <a class="<?= active_nav('products.php') ?>" href="<?= url('products') ?>">Sách & tài liệu</a>
             <a class="<?= active_nav('compiler.php') ?>" href="<?= url('compiler') ?>">Trình biên dịch</a>
             <a class="<?= active_nav('cart.php') ?>" href="<?= url('cart') ?>">Giỏ hàng (<span id="cart-count"><?= cart_items_count() ?></span>)</a>
             <?php if ($user = current_user()): ?>
@@ -34,6 +34,10 @@
                     <a class="login-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown"><?= e($user['name']) ?></a>
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li><a class="dropdown-item" href="<?= url('profile') ?>">Trang cá nhân</a></li>
+                        <li><a class="dropdown-item" href="<?= url('my_materials') ?>">Tài liệu của tôi</a></li>
+                        <?php if (is_admin()): ?>
+                            <li><a class="dropdown-item" href="<?= APP_URL ?>/admin/index.php">Trang quản trị</a></li>
+                        <?php endif; ?>
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item text-danger" href="<?= url('logout') ?>">Đăng xuất</a></li>
                     </ul>

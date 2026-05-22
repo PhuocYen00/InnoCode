@@ -2,7 +2,7 @@
 require_once dirname(__DIR__) . '/core/init.php';
 
 if (is_logged_in()) {
-    redirect('my_courses.php');
+    redirect(is_admin() ? 'admin/index.php' : 'my_courses.php');
 }
 
 $pageTitle = 'Đăng nhập - ' . APP_NAME;
@@ -16,6 +16,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($user && password_verify($password, (string) $user['password_hash'])) {
         login_user($user);
+        if (($user['role'] ?? 'user') === 'admin') {
+            redirect('admin/index.php');
+        }
         redirect($next ?: 'my_courses.php');
     }
 
@@ -30,7 +33,7 @@ require_once dirname(__DIR__) . '/includes/header.php';
     <div class="row justify-content-center">
         <div class="col-md-6 col-lg-5">
             <form class="bg-white rounded-2 p-4 shadow-sm" method="post">
-                <h1 class="h3 mb-3">Đăng nhập học viên</h1>
+                <h1 class="h3 mb-3">Đăng nhập</h1>
                 <input type="hidden" name="next" value="<?= e($next) ?>">
                 <div class="mb-3">
                     <label class="form-label">Email</label>

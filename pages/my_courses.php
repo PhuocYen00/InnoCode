@@ -34,6 +34,14 @@ require_once dirname(__DIR__) . '/includes/header.php';
                         <span class="course-category"><?= e($course['level']) ?></span>
                         <h2 class="course-card-title"><a href="<?= url('learn') ?>&id=<?= (int) $course['id'] ?>"><?= e($course['title']) ?></a></h2>
                         <a class="btn btn-primary btn-sm" href="<?= url('learn') ?>&id=<?= (int) $course['id'] ?>">Vào học</a>
+                        <?php if (course_is_completed((int) $course['id'], (int) $user['id'])): ?>
+                            <?php $gift = gift_request_for((int) $user['id'], (int) $course['id']); ?>
+                            <?php if ($gift): ?>
+                                <p class="small text-success mt-2 mb-0">Quà: <?= e($gift['product_name']) ?> · <?= e(gift_status_label((string) $gift['status'])) ?></p>
+                            <?php else: ?>
+                                <a class="btn btn-outline-primary btn-sm mt-2" href="<?= url('gift_request') ?>&course_id=<?= (int) $course['id'] ?>">Chọn quà hoàn thành</a>
+                            <?php endif; ?>
+                        <?php endif; ?>
                     </div>
                 </div>
             <?php endforeach; ?>

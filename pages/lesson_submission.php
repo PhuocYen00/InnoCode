@@ -30,6 +30,11 @@ if (!is_lesson_unlocked($courseId, $lessonIndex)) {
     redirect('learn.php?id=' . $courseId);
 }
 
+if (!lesson_practice_for($courseId, $lessonIndex)) {
+    flash('error', 'Bài học này chưa có bài thực hành để nộp.');
+    redirect('learn.php?id=' . $courseId . '&lesson=' . $lessonIndex);
+}
+
 if (!isset($_FILES['source_file']) || ($_FILES['source_file']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
     flash('error', 'Vui lòng chọn file bài làm trước khi nộp.');
     redirect('learn.php?id=' . $courseId . '&lesson=' . $lessonIndex);

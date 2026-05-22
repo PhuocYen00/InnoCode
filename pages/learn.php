@@ -17,6 +17,12 @@ if (!has_purchased_course((int) $course['id'])) {
 
 $sections = course_sections($course);
 $flatLessons = course_flat_lessons($course);
+
+if (!$flatLessons) {
+    flash('error', 'Khóa học này chưa có nội dung bài học. Vui lòng quay lại sau khi quản trị viên cập nhật nội dung.');
+    redirect('course.php?id=' . (int) $course['id']);
+}
+
 $lessonIndex = max(0, min((int) ($_GET['lesson'] ?? 0), count($flatLessons) - 1));
 
 if (!is_lesson_unlocked((int) $course['id'], $lessonIndex)) {
@@ -28,6 +34,8 @@ $currentLesson = $flatLessons[$lessonIndex];
 $progress = lesson_progress((int) $course['id'], $lessonIndex);
 $questions = lesson_questions((int) $course['id'], $lessonIndex);
 $materials = lesson_materials_for((int) $course['id'], $lessonIndex);
+$practice = lesson_practice_for((int) $course['id'], $lessonIndex);
+$quizQuestions = quiz_questions_for((int) $course['id'], $lessonIndex);
 $submissionStmt = db()->prepare('SELECT * FROM lesson_submissions WHERE user_id = ? AND course_id = ? AND lesson_index = ? ORDER BY created_at DESC, id DESC LIMIT 1');
 $submissionStmt->execute([(int) current_user()['id'], (int) $course['id'], $lessonIndex]);
 $latestSubmission = $submissionStmt->fetch() ?: null;
@@ -84,68 +92,86 @@ require_once dirname(__DIR__) . '/includes/header.php';
                 </div>
             </form>
 
-            <div class="lesson-tool-grid">
-                <section class="lesson-card materials-card">
+            <?php if (!empty($currentLesson['theory_content'])): ?>
+                <section class="lesson-card">
                     <div class="lesson-card-head">
                         <div>
-                            <span class="lesson-icon">⇩</span>
-                            <h2>Tài liệu bài học</h2>
+                            <span class="lesson-icon">i</span>
+                            <h2>Lý thuyết bài học</h2>
                         </div>
-                        <small>PDF, source code và slide được giảng viên đính kèm.</small>
                     </div>
-                    <div class="material-list">
-                        <?php if ($materials): ?>
+                    <div class="lesson-theory"><?= nl2br(e((string) $currentLesson['theory_content'])) ?></div>
+                </section>
+            <?php endif; ?>
+
+            <div class="lesson-tool-grid">
+                <?php if ($materials): ?>
+                    <section class="lesson-card materials-card">
+                        <div class="lesson-card-head">
+                            <div>
+                                <span class="lesson-icon">⇩</span>
+                                <h2>Tài liệu bài học</h2>
+                            </div>
+                            <small>PDF, source code và slide được giảng viên đính kèm.</small>
+                        </div>
+                        <div class="material-list">
                             <?php foreach ($materials as $material): ?>
                                 <a class="material-item" href="<?= url('download_material') ?>&course_id=<?= (int) $course['id'] ?>&lesson=<?= $lessonIndex ?>&type=<?= e($material['type']) ?>">
                                     <span><?= e($material['title']) ?></span>
                                     <small><?= strtoupper(e($material['type'])) ?></small>
                                 </a>
                             <?php endforeach; ?>
-                        <?php else: ?>
-                            <p class="empty-note">Bài học này chưa có tài liệu đính kèm.</p>
+                        </div>
+                    </section>
+                <?php endif; ?>
+
+                <?php if ($practice): ?>
+                    <section class="lesson-card practice-card">
+                        <div class="lesson-card-head">
+                            <div>
+                                <span class="lesson-icon">⌘</span>
+                                <h2>Nộp bài thực hành</h2>
+                            </div>
+                            <small>Gửi source code để giảng viên kiểm tra.</small>
+                        </div>
+                        <h3 class="h6"><?= e((string) $practice['title']) ?></h3>
+                        <p><?= nl2br(e((string) $practice['instruction'])) ?></p>
+                        <?php if (!empty($practice['starter_code'])): ?>
+                            <pre class="compiler-output"><?= e((string) $practice['starter_code']) ?></pre>
                         <?php endif; ?>
-                    </div>
-                </section>
+                        <form class="practice-submit" method="post" action="<?= url('lesson_submission') ?>" enctype="multipart/form-data">
+                            <input type="hidden" name="course_id" value="<?= (int) $course['id'] ?>">
+                            <input type="hidden" name="lesson_index" value="<?= $lessonIndex ?>">
+                            <input class="form-control" type="file" name="source_file" required>
+                            <textarea class="form-control mt-2" name="note" rows="3" placeholder="Ghi chú thêm cho giảng viên nếu cần"></textarea>
+                            <button class="btn btn-outline-primary mt-2" type="submit">Nộp bài</button>
+                        </form>
+                        <?php if ($latestSubmission): ?>
+                            <div class="submission-status mt-3">
+                                <small class="text-muted">Bài đã nộp gần nhất: <?= e($latestSubmission['original_name']) ?> · <?= e($latestSubmission['created_at']) ?></small>
+                                <?php if (!empty($latestSubmission['feedback'])): ?>
+                                    <p class="answer-box mt-2 mb-0">Nhận xét: <?= e($latestSubmission['feedback']) ?></p>
+                                <?php else: ?>
+                                    <p class="text-muted small mb-0">Đang chờ admin/giảng viên nhận xét.</p>
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
+                    </section>
+                <?php endif; ?>
 
-                <section class="lesson-card practice-card">
-                    <div class="lesson-card-head">
-                        <div>
-                            <span class="lesson-icon">⌘</span>
-                            <h2>Nộp bài thực hành</h2>
+                <?php if ($quizQuestions): ?>
+                    <section class="lesson-card quiz-card">
+                        <div class="lesson-card-head">
+                            <div>
+                                <span class="lesson-icon">?</span>
+                                <h2>Quiz bài học</h2>
+                            </div>
+                            <small>Trắc nghiệm và câu hỏi tự luận trên trang riêng.</small>
                         </div>
-                        <small>Gửi source code để giảng viên kiểm tra.</small>
-                    </div>
-                    <p>Viết một hàm xử lý dữ liệu theo nội dung bài học, sau đó nộp file source code.</p>
-                    <form class="practice-submit" method="post" action="<?= url('lesson_submission') ?>" enctype="multipart/form-data">
-                        <input type="hidden" name="course_id" value="<?= (int) $course['id'] ?>">
-                        <input type="hidden" name="lesson_index" value="<?= $lessonIndex ?>">
-                        <input class="form-control" type="file" name="source_file" required>
-                        <textarea class="form-control mt-2" name="note" rows="3" placeholder="Ghi chú thêm cho giảng viên nếu cần"></textarea>
-                        <button class="btn btn-outline-primary mt-2" type="submit">Nộp bài</button>
-                    </form>
-                    <?php if ($latestSubmission): ?>
-                        <div class="submission-status mt-3">
-                            <small class="text-muted">Bài đã nộp gần nhất: <?= e($latestSubmission['original_name']) ?> · <?= e($latestSubmission['created_at']) ?></small>
-                            <?php if (!empty($latestSubmission['feedback'])): ?>
-                                <p class="answer-box mt-2 mb-0">Nhận xét: <?= e($latestSubmission['feedback']) ?></p>
-                            <?php else: ?>
-                                <p class="text-muted small mb-0">Đang chờ admin/giảng viên nhận xét.</p>
-                            <?php endif; ?>
-                        </div>
-                    <?php endif; ?>
-                </section>
-
-                <section class="lesson-card quiz-card">
-                    <div class="lesson-card-head">
-                        <div>
-                            <span class="lesson-icon">?</span>
-                            <h2>Quiz bài học</h2>
-                        </div>
-                        <small>Trắc nghiệm và câu hỏi tự luận trên trang riêng.</small>
-                    </div>
-                    <p>Kiểm tra lại kiến thức của bài học trước khi mở các nội dung tiếp theo.</p>
-                    <a class="btn btn-primary" href="<?= url('quiz') ?>&course_id=<?= (int) $course['id'] ?>&lesson=<?= $lessonIndex ?>">Vào làm quiz</a>
-                </section>
+                        <p>Kiểm tra lại kiến thức của bài học trước khi mở các nội dung tiếp theo.</p>
+                        <a class="btn btn-primary" href="<?= url('quiz') ?>&course_id=<?= (int) $course['id'] ?>&lesson=<?= $lessonIndex ?>">Vào làm quiz</a>
+                    </section>
+                <?php endif; ?>
 
                 <section class="lesson-card compiler-card" id="compiler">
                     <div class="lesson-card-head">

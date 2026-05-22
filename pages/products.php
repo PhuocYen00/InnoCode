@@ -1,13 +1,12 @@
 <?php
 require_once dirname(__DIR__) . '/core/init.php';
 
-$pageTitle = 'Sách, giáo trình & quà lưu niệm - ' . APP_NAME;
+$pageTitle = 'Sách & tài liệu - ' . APP_NAME;
 $q = trim((string) ($_GET['q'] ?? ''));
 $type = (string) ($_GET['type'] ?? '');
 $types = [
-    'pdf' => 'Sách/PDF',
-    'printed_document' => 'Giáo trình giấy',
-    'souvenir' => 'Quà lưu niệm',
+    'pdf' => 'Sách điện tử',
+    'printed_document' => 'Tài liệu học tập',
 ];
 
 if (!array_key_exists($type, $types)) {
@@ -15,7 +14,7 @@ if (!array_key_exists($type, $types)) {
 }
 
 $params = [];
-$where = ' WHERE is_active = 1';
+$where = " WHERE is_active = 1 AND product_type <> 'souvenir'";
 
 if ($q !== '') {
     $where .= ' AND (name LIKE :q OR description LIKE :q)';
@@ -38,8 +37,8 @@ require_once dirname(__DIR__) . '/includes/header.php';
     <div class="section-heading">
         <div>
             <span class="section-kicker">Cửa hàng học viên</span>
-            <h1>Sách, giáo trình & quà lưu niệm</h1>
-            <p>Tài liệu học tập, PDF, giáo trình in và vật phẩm InnoCode.</p>
+            <h1>Sách & tài liệu</h1>
+            <p>Sách điện tử, PDF và tài liệu học tập có thể tải về sau khi thanh toán.</p>
         </div>
     </div>
 
@@ -48,7 +47,7 @@ require_once dirname(__DIR__) . '/includes/header.php';
         <div class="row g-3 align-items-end">
             <div class="col-md-6">
                 <label class="form-label">Tìm sản phẩm</label>
-                <input class="form-control" name="q" value="<?= e($q) ?>" placeholder="Tên sách, giáo trình, quà lưu niệm...">
+                <input class="form-control" name="q" value="<?= e($q) ?>" placeholder="Tên sách hoặc tài liệu...">
             </div>
             <div class="col-md-4">
                 <label class="form-label">Loại</label>

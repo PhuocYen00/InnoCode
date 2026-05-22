@@ -39,11 +39,15 @@ if (!is_file($path)) {
     exit('File tài liệu chưa tồn tại.');
 }
 
-$mime = match (pathinfo($path, PATHINFO_EXTENSION)) {
-    'pdf' => 'application/pdf',
-    'php', 'txt' => 'text/plain; charset=utf-8',
-    default => 'application/octet-stream',
-};
+$extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+
+if ($extension === 'pdf') {
+    $mime = 'application/pdf';
+} elseif ($extension === 'php' || $extension === 'txt') {
+    $mime = 'text/plain; charset=utf-8';
+} else {
+    $mime = 'application/octet-stream';
+}
 
 header('Content-Type: ' . $mime);
 header('Content-Disposition: attachment; filename="' . basename($path) . '"');

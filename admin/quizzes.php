@@ -86,7 +86,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $courses = db()->query('SELECT * FROM courses ORDER BY title')->fetchAll();
 $selectedCourse = $courseId ? find_course($courseId, false) : ($courses[0] ?? null);
 $courseId = (int) ($selectedCourse['id'] ?? 0);
-$lessons = $selectedCourse ? array_filter(course_flat_lessons($selectedCourse), static fn (array $lesson): bool => !empty($lesson['id'])) : [];
+$lessons = [];
+if ($selectedCourse) {
+    foreach (course_flat_lessons($selectedCourse) as $lesson) {
+        if (!empty($lesson['id'])) {
+            $lessons[] = $lesson;
+        }
+    }
+}
 
 if ($lessonId === 0 && $lessons) {
     $firstLesson = reset($lessons);

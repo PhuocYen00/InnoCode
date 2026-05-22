@@ -2028,6 +2028,28 @@ body,
     background: transparent;
 }
 
+.gift-choice {
+    display: grid;
+    gap: 8px;
+    height: 100%;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.gift-choice img {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    border-radius: 6px;
+}
+
+.gift-choice span {
+    color: var(--muted);
+    font-size: 14px;
+}
+
 @media (max-width: 991px) {
     .about-feature-grid {
         grid-template-columns: 1fr;

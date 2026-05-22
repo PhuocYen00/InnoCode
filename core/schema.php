@@ -19,6 +19,7 @@ function ensure_schema(): void
         email VARCHAR(190) NOT NULL UNIQUE,
         phone VARCHAR(50) NULL,
         password_hash VARCHAR(255) NOT NULL,
+        role ENUM('user', 'admin') NOT NULL DEFAULT 'user',
         email_verified_at DATETIME NULL,
         verification_token VARCHAR(100) NULL,
         reset_token VARCHAR(100) NULL,
@@ -27,6 +28,7 @@ function ensure_schema(): void
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )");
     ensure_column('users', 'avatar_url', 'VARCHAR(500) NULL AFTER phone');
+    ensure_column('users', 'role', "ENUM('user', 'admin') NOT NULL DEFAULT 'user' AFTER password_hash");
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS cart_items (
         id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -59,6 +61,12 @@ function ensure_schema(): void
         body TEXT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT fk_email_logs_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    )");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS app_settings (
+        setting_key VARCHAR(100) PRIMARY KEY,
+        setting_value VARCHAR(255) NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )");
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS course_chapters (
@@ -195,9 +203,11 @@ function ensure_schema(): void
         price DECIMAL(12,2) NOT NULL DEFAULT 0,
         stock INT UNSIGNED NOT NULL DEFAULT 0,
         image_url VARCHAR(500) NULL,
+        digital_file_url VARCHAR(500) NULL,
         is_active TINYINT(1) NOT NULL DEFAULT 1,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )");
+    ensure_column('physical_products', 'digital_file_url', 'VARCHAR(500) NULL AFTER image_url');
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS product_cart_items (
         id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -236,6 +246,24 @@ function ensure_schema(): void
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT fk_physical_order_items_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
         CONSTRAINT fk_physical_order_items_product FOREIGN KEY (product_id) REFERENCES physical_products(id)
+    )");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS gift_requests (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        user_id INT UNSIGNED NOT NULL,
+        course_id INT UNSIGNED NOT NULL,
+        product_id INT UNSIGNED NOT NULL,
+        receiver_name VARCHAR(190) NOT NULL,
+        receiver_phone VARCHAR(50) NOT NULL,
+        address TEXT NOT NULL,
+        status ENUM('pending', 'confirmed', 'shipping', 'delivered') NOT NULL DEFAULT 'pending',
+        note TEXT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_gift_user_course (user_id, course_id),
+        CONSTRAINT fk_gift_requests_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        CONSTRAINT fk_gift_requests_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+        CONSTRAINT fk_gift_requests_product FOREIGN KEY (product_id) REFERENCES physical_products(id)
     )");
 
     ensure_column('orders', 'user_id', 'INT UNSIGNED NULL AFTER id');
@@ -322,19 +350,146 @@ function ensure_schema(): void
         $pdo->exec("INSERT IGNORE INTO coupons (code, discount_type, discount_value, usage_limit, is_active)
             VALUES ('INNO10', 'percent', 10, 200, 1), ('WELCOME50', 'fixed', 50000, 200, 1)");
 
-        $pdo->exec("INSERT IGNORE INTO physical_products (id, name, product_type, description, price, stock, image_url, is_active)
+        $adminHash = password_hash(ADMIN_PASSWORD, PASSWORD_DEFAULT);
+        $stmt = $pdo->prepare("INSERT INTO users (name, email, phone, password_hash, role, email_verified_at)
+            VALUES ('Quản trị viên', 'admin@innocode.local', '', ?, 'admin', NOW())
+            ON DUPLICATE KEY UPDATE role = 'admin', email_verified_at = COALESCE(email_verified_at, NOW())");
+        $stmt->execute([$adminHash]);
+
+        $pdo->exec("INSERT IGNORE INTO physical_products (id, name, product_type, description, price, stock, image_url, digital_file_url, is_active)
             VALUES
-            (1, 'Sổ tay InnoCode', 'souvenir', 'Sổ ghi chú học lập trình in logo InnoCode.', 59000, 100, 'https://images.unsplash.com/photo-1517842645767-c639042777db?auto=format&fit=crop&w=900&q=80', 1),
-            (2, 'Áo thun InnoCode', 'souvenir', 'Áo thun cotton dành cho học viên InnoCode.', 179000, 50, 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80', 1),
-            (3, 'Tài liệu PHP bản in', 'printed_document', 'Tài liệu giấy PHP & MySQL có vận chuyển.', 129000, 80, 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=900&q=80', 1)");
+            (1, 'Sổ tay InnoCode', 'souvenir', 'Sổ ghi chú học lập trình in logo InnoCode.', 0, 100, 'https://images.unsplash.com/photo-1517842645767-c639042777db?auto=format&fit=crop&w=900&q=80', NULL, 1),
+            (2, 'Áo thun InnoCode', 'souvenir', 'Áo thun cotton dành cho học viên InnoCode.', 0, 50, 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80', NULL, 1),
+            (3, 'Tài liệu PHP & MySQL', 'printed_document', 'Tài liệu học tập PHP & MySQL dạng file tải về.', 129000, 999, 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=900&q=80', 'php-intro.pdf', 1),
+            (4, 'Slide tóm tắt lập trình web', 'pdf', 'Bộ slide ôn tập kiến thức nền tảng lập trình web.', 49000, 999, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=900&q=80', 'slide-tom-tat.txt', 1)");
 
         seed_free_demo_courses($pdo);
+        seed_course_content_demo_data($pdo);
         seed_revenue_demo_data($pdo);
     } catch (PDOException $exception) {
         if (!in_array((string) $exception->getCode(), ['40001', 'HY000'], true)) {
             throw $exception;
         }
     }
+}
+
+function seed_course_content_demo_data(PDO $pdo): void
+{
+    $stmt = $pdo->prepare('SELECT setting_value FROM app_settings WHERE setting_key = ?');
+    $stmt->execute(['demo_course_content_seeded']);
+
+    if ($stmt->fetchColumn()) {
+        return;
+    }
+
+    $chapterCount = (int) $pdo->query('SELECT COUNT(*) FROM course_chapters')->fetchColumn();
+    if ($chapterCount > 0) {
+        $stmt = $pdo->prepare('INSERT INTO app_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)');
+        $stmt->execute(['demo_course_content_seeded', '1']);
+        return;
+    }
+
+    $courses = $pdo->query('SELECT id, title FROM courses ORDER BY id')->fetchAll();
+    if (!$courses) {
+        return;
+    }
+
+    $chapterExistsStmt = $pdo->prepare('SELECT COUNT(*) FROM course_chapters WHERE course_id = ?');
+    $chapterStmt = $pdo->prepare('INSERT INTO course_chapters (course_id, title, sort_order) VALUES (?, ?, ?)');
+    $lessonStmt = $pdo->prepare('INSERT INTO course_lessons (chapter_id, title, video_url, theory_content, duration_minutes, is_preview, unlock_order) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    $materialStmt = $pdo->prepare('INSERT INTO lesson_materials (lesson_id, title, material_type, file_url) VALUES (?, ?, ?, ?)');
+    $practiceStmt = $pdo->prepare('INSERT INTO lesson_practices (lesson_id, title, instruction, starter_code, expected_output) VALUES (?, ?, ?, ?, ?)');
+    $quizStmt = $pdo->prepare('INSERT INTO quizzes (lesson_id, title) VALUES (?, ?)');
+    $questionStmt = $pdo->prepare('INSERT INTO quiz_questions (quiz_id, question_type, question, option_a, option_b, option_c, option_d, correct_option, sample_answer) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+
+    foreach ($courses as $course) {
+        $courseId = (int) $course['id'];
+        $chapterExistsStmt->execute([$courseId]);
+        if ((int) $chapterExistsStmt->fetchColumn() > 0) {
+            continue;
+        }
+
+        $chapterStmt->execute([$courseId, 'Chương 1 - Nền tảng và thực hành', 1]);
+        $chapterId = (int) $pdo->lastInsertId();
+        $lessonTemplates = course_content_seed_lessons((string) $course['title']);
+
+        foreach ($lessonTemplates as $index => $lesson) {
+            $videos = course_video_map()[course_video_key($course)]['lessons'];
+            $lessonStmt->execute([
+                $chapterId,
+                $lesson['title'],
+                $videos[$index % count($videos)],
+                $lesson['theory'],
+                $lesson['duration'],
+                $index === 0 ? 1 : 0,
+                $index + 1,
+            ]);
+            $lessonId = (int) $pdo->lastInsertId();
+
+            $materialStmt->execute([$lessonId, 'PDF bài học', 'pdf', 'php-intro.pdf']);
+            $materialStmt->execute([$lessonId, 'Source code mẫu', 'source_code', 'source-mau.php']);
+            $practiceStmt->execute([$lessonId, 'Bài thực hành - ' . $lesson['title'], $lesson['practice'], $lesson['starter_code'], $lesson['expected_output']]);
+
+            $quizStmt->execute([$lessonId, 'Quiz - ' . $lesson['title']]);
+            $quizId = (int) $pdo->lastInsertId();
+            $questionStmt->execute([$quizId, 'choice', $lesson['quiz_question'], $lesson['option_a'], $lesson['option_b'], $lesson['option_c'], $lesson['option_d'], 'a', '']);
+            $questionStmt->execute([$quizId, 'essay', 'Mô tả ngắn cách áp dụng nội dung bài học này vào một chức năng thực tế.', 'Câu trả lời cần nêu được mục tiêu, bước xử lý chính và kết quả mong muốn.', '-', '', '', 'a', 'Gợi ý: liên hệ với một màn hình hoặc luồng nghiệp vụ trong website.']);
+        }
+    }
+
+    $stmt = $pdo->prepare('INSERT INTO app_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)');
+    $stmt->execute(['demo_course_content_seeded', '1']);
+}
+
+function course_content_seed_lessons(string $courseTitle): array
+{
+    $lowerTitle = strtolower($courseTitle);
+    $topic = str_contains($lowerTitle, 'javascript') ? 'JavaScript'
+        : (str_contains($lowerTitle, 'react') ? 'React'
+        : (str_contains($lowerTitle, 'mysql') || str_contains($lowerTitle, 'sql') ? 'SQL'
+        : (str_contains($lowerTitle, 'laravel') ? 'Laravel' : 'PHP')));
+
+    return [
+        [
+            'title' => 'Tổng quan và môi trường học',
+            'theory' => 'Bài học giới thiệu mục tiêu khóa học, công cụ cần chuẩn bị và cách tổ chức thư mục khi thực hành.',
+            'duration' => 18,
+            'practice' => 'Tạo cấu trúc thư mục thực hành cho chủ đề ' . $topic . ', thêm file README mô tả mục tiêu và nộp lại file nén hoặc source code.',
+            'starter_code' => "README.md\nsrc/\npublic/",
+            'expected_output' => 'Có cấu trúc thư mục rõ ràng và README mô tả đúng mục tiêu.',
+            'quiz_question' => 'Mục tiêu chính của bước chuẩn bị môi trường là gì?',
+            'option_a' => 'Đảm bảo người học có công cụ và cấu trúc thực hành thống nhất',
+            'option_b' => 'Tăng giá khóa học',
+            'option_c' => 'Ẩn nội dung khỏi admin',
+            'option_d' => 'Bỏ qua phần thực hành',
+        ],
+        [
+            'title' => 'Kiến thức cốt lõi',
+            'theory' => 'Bài học tập trung vào khái niệm cốt lõi, cú pháp thường dùng và lỗi phổ biến khi triển khai.',
+            'duration' => 28,
+            'practice' => 'Viết một ví dụ nhỏ sử dụng kiến thức cốt lõi của ' . $topic . '. Code cần có input, xử lý và output rõ ràng.',
+            'starter_code' => $topic === 'SQL' ? "SELECT * FROM users WHERE id = 1;" : "<?php\nfunction demo() {\n    return 'InnoCode';\n}\n",
+            'expected_output' => 'Chạy được ví dụ và giải thích được từng bước xử lý.',
+            'quiz_question' => 'Khi học kiến thức cốt lõi, điều nào quan trọng nhất?',
+            'option_a' => 'Hiểu mục đích sử dụng và tự viết được ví dụ',
+            'option_b' => 'Chỉ xem video',
+            'option_c' => 'Không cần kiểm thử kết quả',
+            'option_d' => 'Sao chép code mà không đọc',
+        ],
+        [
+            'title' => 'Bài tập ứng dụng',
+            'theory' => 'Bài học hướng dẫn áp dụng kiến thức vào một chức năng nhỏ, có luồng xử lý và dữ liệu đầu ra cụ thể.',
+            'duration' => 35,
+            'practice' => 'Xây dựng một chức năng nhỏ theo chủ đề khóa học, nộp source code và ghi chú cách chạy.',
+            'starter_code' => '',
+            'expected_output' => 'Chức năng chạy được, có ghi chú cách kiểm tra và không báo lỗi cú pháp.',
+            'quiz_question' => 'Một bài tập ứng dụng tốt cần có gì?',
+            'option_a' => 'Yêu cầu rõ, code chạy được và có kết quả kiểm tra',
+            'option_b' => 'Chỉ có giao diện',
+            'option_c' => 'Không cần nộp bài',
+            'option_d' => 'Không cần dữ liệu mẫu',
+        ],
+    ];
 }
 
 function seed_free_demo_courses(PDO $pdo): void

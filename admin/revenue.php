@@ -71,6 +71,27 @@ $filterLabel = $from || $to ? trim(($from ?: '...') . ' - ' . ($to ?: '...')) : 
 $daily = array_reverse($daily);
 $monthly = array_reverse($monthly);
 $yearly = array_reverse($yearly);
+
+$dailyLabels = [];
+$dailyTotals = [];
+foreach ($daily as $row) {
+    $dailyLabels[] = $row['label'];
+    $dailyTotals[] = (float) $row['total'];
+}
+
+$monthlyLabels = [];
+$monthlyTotals = [];
+foreach ($monthly as $row) {
+    $monthlyLabels[] = $row['label'];
+    $monthlyTotals[] = (float) $row['total'];
+}
+
+$yearlyLabels = [];
+$yearlyTotals = [];
+foreach ($yearly as $row) {
+    $yearlyLabels[] = $row['label'];
+    $yearlyTotals[] = (float) $row['total'];
+}
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -140,24 +161,24 @@ const moneyTick = value => new Intl.NumberFormat('vi-VN').format(value) + 'đ';
 new Chart(document.getElementById('dailyRevenueChart'), {
     type: 'bar',
     data: {
-        labels: <?= json_encode(array_column($daily, 'label')) ?>,
-        datasets: [{ label: 'Doanh thu', data: <?= json_encode(array_map('floatval', array_column($daily, 'total'))) ?>, backgroundColor: '#2563eb' }]
+        labels: <?= json_encode($dailyLabels) ?>,
+        datasets: [{ label: 'Doanh thu', data: <?= json_encode($dailyTotals) ?>, backgroundColor: '#2563eb' }]
     },
     options: { scales: { y: { ticks: { callback: moneyTick } } } }
 });
 new Chart(document.getElementById('monthRevenueChart'), {
     type: 'line',
     data: {
-        labels: <?= json_encode(array_column($monthly, 'label')) ?>,
-        datasets: [{ label: 'Doanh thu', data: <?= json_encode(array_map('floatval', array_column($monthly, 'total'))) ?>, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,.12)', fill: true, tension: .3 }]
+        labels: <?= json_encode($monthlyLabels) ?>,
+        datasets: [{ label: 'Doanh thu', data: <?= json_encode($monthlyTotals) ?>, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,.12)', fill: true, tension: .3 }]
     },
     options: { scales: { y: { ticks: { callback: moneyTick } } } }
 });
 new Chart(document.getElementById('yearRevenueChart'), {
     type: 'doughnut',
     data: {
-        labels: <?= json_encode(array_column($yearly, 'label')) ?>,
-        datasets: [{ data: <?= json_encode(array_map('floatval', array_column($yearly, 'total'))) ?>, backgroundColor: ['#2563eb', '#16a34a', '#f97316', '#ef4444', '#8b5cf6'] }]
+        labels: <?= json_encode($yearlyLabels) ?>,
+        datasets: [{ data: <?= json_encode($yearlyTotals) ?>, backgroundColor: ['#2563eb', '#16a34a', '#f97316', '#ef4444', '#8b5cf6'] }]
     }
 });
 </script>

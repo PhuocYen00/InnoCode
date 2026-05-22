@@ -14,6 +14,11 @@ if (!$course || !has_purchased_course($courseId)) {
 $questions = quiz_questions_for($courseId, $lessonIndex);
 $result = null;
 
+if (!$questions) {
+    flash('error', 'Bài học này chưa có quiz.');
+    redirect('learn.php?id=' . $courseId . '&lesson=' . $lessonIndex);
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $score = 0;
     $total = 0;

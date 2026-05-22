@@ -11,7 +11,10 @@ if (!$order) {
 }
 
 $items = order_items($orderId);
-$subtotal = array_sum(array_map(static fn (array $item): float => (float) $item['price'] * (int) $item['quantity'], $items));
+$subtotal = 0;
+foreach ($items as $item) {
+    $subtotal += (float) $item['price'] * (int) $item['quantity'];
+}
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">

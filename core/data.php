@@ -5,7 +5,7 @@ declare(strict_types=1);
 function payment_methods(): array
 {
     return [
-        'bank' => 'Chuyển khoản VietQR qua PayOS',
+        'bank' => 'Chuyển khoản ngân hàng/VietQR',
         'vnpay' => 'VNPay qua PayOS',
         'momo' => 'MoMo qua PayOS',
         'cod' => 'Thanh toán khi nhận hàng',

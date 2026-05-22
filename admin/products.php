@@ -1,16 +1,15 @@
 <?php
-$pageTitle = 'Sách & quà lưu niệm';
+$pageTitle = 'Sách & tài liệu';
 require_once __DIR__ . '/includes/header.php';
 
 $types = [
-    'pdf' => 'Sách/PDF',
-    'printed_document' => 'Tài liệu giấy',
-    'souvenir' => 'Quà lưu niệm',
+    'pdf' => 'Sách điện tử',
+    'printed_document' => 'Tài liệu học tập',
 ];
 $id = (int) ($_GET['id'] ?? 0);
 $product = null;
 if ($id) {
-    $stmt = db()->prepare('SELECT * FROM physical_products WHERE id = ?');
+    $stmt = db()->prepare("SELECT * FROM physical_products WHERE id = ? AND product_type <> 'souvenir'");
     $stmt->execute([$id]);
     $product = $stmt->fetch();
 }
@@ -20,13 +19,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $productId = (int) ($_POST['id'] ?? 0);
 
     if ($action === 'delete' && $productId) {
-        $stmt = db()->prepare('DELETE FROM physical_products WHERE id = ?');
+        $stmt = db()->prepare("DELETE FROM physical_products WHERE id = ? AND product_type <> 'souvenir'");
         $stmt->execute([$productId]);
         flash('success', 'Đã xóa sản phẩm.');
         redirect('admin/products.php');
     }
 
     $imageUrl = trim((string) ($_POST['image_url'] ?? ''));
+    $digitalFileUrl = trim((string) ($_POST['digital_file_url'] ?? ''));
     if (!empty($_FILES['image_file']['name'])) {
         $allowed = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
         $extension = strtolower(pathinfo((string) $_FILES['image_file']['name'], PATHINFO_EXTENSION));
@@ -48,11 +48,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $data = [
         'name' => trim((string) ($_POST['name'] ?? '')),
-        'product_type' => (string) ($_POST['product_type'] ?? 'pdf'),
+        'product_type' => array_key_exists((string) ($_POST['product_type'] ?? 'pdf'), $types) ? (string) $_POST['product_type'] : 'pdf',
         'description' => trim((string) ($_POST['description'] ?? '')),
         'price' => (float) ($_POST['price'] ?? 0),
         'stock' => (int) ($_POST['stock'] ?? 0),
         'image_url' => $imageUrl,
+        'digital_file_url' => $digitalFileUrl,
         'is_active' => isset($_POST['is_active']) ? 1 : 0,
     ];
 
@@ -63,11 +64,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($productId) {
         $data['id'] = $productId;
-        $stmt = db()->prepare('UPDATE physical_products SET name = :name, product_type = :product_type, description = :description, price = :price, stock = :stock, image_url = :image_url, is_active = :is_active WHERE id = :id');
+        $stmt = db()->prepare("UPDATE physical_products SET name = :name, product_type = :product_type, description = :description, price = :price, stock = :stock, image_url = :image_url, digital_file_url = :digital_file_url, is_active = :is_active WHERE id = :id AND product_type <> 'souvenir'");
         $stmt->execute($data);
         flash('success', 'Đã cập nhật sản phẩm.');
     } else {
-        $stmt = db()->prepare('INSERT INTO physical_products (name, product_type, description, price, stock, image_url, is_active) VALUES (:name, :product_type, :description, :price, :stock, :image_url, :is_active)');
+        $stmt = db()->prepare('INSERT INTO physical_products (name, product_type, description, price, stock, image_url, digital_file_url, is_active) VALUES (:name, :product_type, :description, :price, :stock, :image_url, :digital_file_url, :is_active)');
         $stmt->execute($data);
         flash('success', 'Đã thêm sản phẩm.');
     }
@@ -79,16 +80,17 @@ $q = admin_search_term();
 $params = [];
 $where = '';
 if ($q !== '') {
-    $where = ' WHERE name LIKE ? OR product_type LIKE ? OR description LIKE ?';
+    $where = " WHERE product_type <> 'souvenir' AND (name LIKE ? OR product_type LIKE ? OR description LIKE ?)";
     $like = '%' . $q . '%';
     $params = [$like, $like, $like];
 }
 
-$countStmt = db()->prepare('SELECT COUNT(*) FROM physical_products' . $where);
+$baseWhere = $where !== '' ? $where : " WHERE product_type <> 'souvenir'";
+$countStmt = db()->prepare('SELECT COUNT(*) FROM physical_products' . $baseWhere);
 $countStmt->execute($params);
 $totalProducts = (int) $countStmt->fetchColumn();
 
-$stmt = db()->prepare('SELECT * FROM physical_products' . $where . '
+$stmt = db()->prepare('SELECT * FROM physical_products' . $baseWhere . '
     ORDER BY created_at DESC
     LIMIT ' . admin_per_page() . ' OFFSET ' . admin_offset());
 $stmt->execute($params);
@@ -96,7 +98,7 @@ $products = $stmt->fetchAll();
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="h2 mb-0">Sách & quà lưu niệm</h1>
+    <h1 class="h2 mb-0">Sách & tài liệu</h1>
     <a class="btn btn-outline-secondary" href="<?= APP_URL ?>/admin/index.php">Dashboard</a>
 </div>
 
@@ -127,6 +129,8 @@ $products = $stmt->fetchAll();
             </div>
             <label class="form-label">Ảnh URL</label>
             <input class="form-control mb-3" name="image_url" value="<?= e($product['image_url'] ?? '') ?>">
+            <label class="form-label">File tài liệu</label>
+            <input class="form-control mb-3" name="digital_file_url" value="<?= e($product['digital_file_url'] ?? '') ?>" placeholder="php-intro.pdf hoặc URL">
             <label class="form-label">Hoặc chọn ảnh từ máy</label>
             <input class="form-control mb-3" type="file" name="image_file" accept="image/*">
             <div class="form-check mb-3">

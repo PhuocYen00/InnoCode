@@ -13,8 +13,15 @@ if (!$items) {
 }
 
 $hasPhysicalItems = cart_has_physical_items($items);
-$courseItems = array_values(array_filter($items, static fn (array $item): bool => ($item['type'] ?? '') === 'course'));
-$productItems = array_values(array_filter($items, static fn (array $item): bool => ($item['type'] ?? '') === 'product'));
+$courseItems = [];
+$productItems = [];
+foreach ($items as $item) {
+    if (($item['type'] ?? '') === 'course') {
+        $courseItems[] = $item;
+    } elseif (($item['type'] ?? '') === 'product') {
+        $productItems[] = $item;
+    }
+}
 $courseSubtotal = cart_total($courseItems);
 $productSubtotal = cart_total($productItems);
 $subtotal = $courseSubtotal + $productSubtotal;
@@ -28,16 +35,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $customerName = trim((string) ($_POST['customer_name'] ?? ''));
     $customerEmail = trim((string) ($_POST['customer_email'] ?? ''));
     $customerPhone = trim((string) ($_POST['customer_phone'] ?? ''));
-    $receiverName = trim((string) ($_POST['receiver_name'] ?? $customerName));
-    $receiverPhone = trim((string) ($_POST['receiver_phone'] ?? $customerPhone));
-    $shippingAddress = trim((string) ($_POST['shipping_address'] ?? ''));
     $paymentMethod = (string) ($_POST['payment_method'] ?? 'bank');
-    $productPaymentMode = (string) ($_POST['product_payment_mode'] ?? 'online');
     $note = trim((string) ($_POST['note'] ?? ''));
-    $payProductsNow = !$hasPhysicalItems || $productPaymentMode === 'online';
-    $payableItems = array_values(array_filter($items, static function (array $item) use ($payProductsNow): bool {
-        return ($item['type'] ?? '') === 'course' || $payProductsNow;
-    }));
+    $payableItems = $items;
     $payableSubtotal = cart_total($payableItems);
     $discount = cart_discount($payableSubtotal);
     $total = max(0, $payableSubtotal - $discount);
@@ -47,18 +47,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('checkout.php');
     }
 
-    if ($hasPhysicalItems && ($receiverName === '' || $receiverPhone === '' || $shippingAddress === '')) {
-        flash('error', 'Vui lòng nhập đầy đủ thông tin nhận hàng.');
-        redirect('checkout.php');
-    }
-
     $allowedPaymentMethods = ['bank', 'vnpay', 'momo'];
     if (!in_array($paymentMethod, $allowedPaymentMethods, true)) {
         $paymentMethod = 'bank';
-    }
-
-    if ($hasPhysicalItems && !$payProductsNow && $courseSubtotal <= 0) {
-        $paymentMethod = 'cod';
     }
 
     $pdo = db();
@@ -87,13 +78,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute([$orderId, $item['id'], $item['price']]);
             } else {
                 $stmt = $pdo->prepare('INSERT INTO physical_order_items (order_id, product_id, product_name, price, quantity, payment_status) VALUES (?, ?, ?, ?, ?, ?)');
-                $stmt->execute([$orderId, $item['id'], $item['title'], $item['price'], $item['quantity'], $payProductsNow ? 'paid_online' : 'pay_later']);
+                $stmt->execute([$orderId, $item['id'], $item['title'], $item['price'], $item['quantity'], 'paid_online']);
             }
-        }
-
-        if ($hasPhysicalItems) {
-            $stmt = $pdo->prepare('INSERT INTO shipments (order_id, receiver_name, receiver_phone, address, status) VALUES (?, ?, ?, ?, ?)');
-            $stmt->execute([$orderId, $receiverName, $receiverPhone, $shippingAddress, 'pending']);
         }
 
         $stmt = $pdo->prepare('UPDATE orders SET payment_code = ?, payos_order_code = ? WHERE id = ?');
@@ -110,7 +96,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($total <= 0 || $paymentMethod === 'cod') {
-            flash('success', 'Đã tạo đơn giao hàng. Phần sách/quà sẽ được xác nhận và tính toán sau.');
+            flash('success', 'Đã tạo đơn hàng.');
+            redirect('payment_success.php?id=' . $orderId);
+        }
+
+        if ($paymentMethod === 'bank') {
+            flash('success', 'Đã tạo đơn hàng. Vui lòng chuyển khoản theo thông tin VietQR để admin xác nhận và mở khóa nội dung.');
             redirect('payment_success.php?id=' . $orderId);
         }
 
@@ -122,7 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
-        flash('error', 'Chưa tạo được link PayOS. Hệ thống hiển thị thông tin chuyển khoản VietQR để bạn thanh toán và chờ xác nhận.');
+        flash('success', 'Đã tạo đơn hàng. Hiện chưa tạo được link PayOS, bạn có thể chuyển khoản VietQR để admin xác nhận.');
         redirect('payment_success.php?id=' . $orderId);
     } catch (Throwable $exception) {
         $pdo->rollBack();
@@ -133,7 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 require_once dirname(__DIR__) . '/includes/header.php';
 $paymentOptions = $hasPhysicalItems
-    ? ['bank' => 'Chuyển khoản VietQR qua PayOS', 'vnpay' => 'VNPay qua PayOS', 'momo' => 'MoMo qua PayOS']
+    ? ['bank' => payment_methods()['bank'], 'vnpay' => payment_methods()['vnpay'], 'momo' => payment_methods()['momo']]
     : array_intersect_key(payment_methods(), array_flip(['bank', 'vnpay', 'momo']));
 ?>
 
@@ -155,37 +146,6 @@ $paymentOptions = $hasPhysicalItems
                     <label class="form-label">Số điện thoại</label>
                     <input class="form-control" name="customer_phone" value="<?= e($user['phone']) ?>" required>
                 </div>
-
-                <?php if ($hasPhysicalItems): ?>
-                    <div class="checkout-shipping-box">
-                        <h2 class="h5 mb-3">Thông tin nhận hàng</h2>
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label class="form-label">Người nhận</label>
-                                <input class="form-control" name="receiver_name" value="<?= e($user['name']) ?>" required>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Số điện thoại nhận hàng</label>
-                                <input class="form-control" name="receiver_phone" value="<?= e($user['phone']) ?>" required>
-                            </div>
-                            <div class="col-12">
-                                <label class="form-label">Địa chỉ giao hàng</label>
-                                <textarea class="form-control" name="shipping_address" rows="3" required></textarea>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="checkout-shipping-box">
-                        <h2 class="h5 mb-3">Cách tính tiền sách/quà</h2>
-                        <label class="d-block mb-2">
-                            <input type="radio" name="product_payment_mode" value="online" checked>
-                            <span>Thanh toán online cùng khóa học</span>
-                        </label>
-                        <label class="d-block mb-0">
-                            <input type="radio" name="product_payment_mode" value="later">
-                            <span>Chỉ thanh toán khóa học trước, sách/quà sẽ tính sau khi xác nhận giao hàng</span>
-                        </label>
-                    </div>
-                <?php endif; ?>
 
                 <div class="mb-3">
                     <label class="form-label">Phương thức thanh toán</label>
@@ -223,10 +183,10 @@ $paymentOptions = $hasPhysicalItems
                 <?php endif; ?>
                 <?php if ($productSubtotal > 0): ?>
                     <div class="d-flex justify-content-between pt-2">
-                        <span>Sách/quà trong giỏ</span>
+                        <span>Sách/tài liệu trong giỏ</span>
                         <strong><?= money($productSubtotal) ?></strong>
                     </div>
-                    <p class="small text-muted mt-2 mb-0">Nếu chọn tính sau, tổng thanh toán hiện tại chỉ gồm khóa học. Sách/quà vẫn được lưu vào đơn để admin xử lý giao hàng.</p>
+                    <p class="small text-muted mt-2 mb-0">Sau khi thanh toán, sách và tài liệu sẽ nằm trong mục Tài liệu của tôi để xem và tải về.</p>
                 <?php endif; ?>
                 <div class="d-flex justify-content-between pt-3">
                     <span>Tạm tính tối đa</span>
@@ -244,20 +204,5 @@ $paymentOptions = $hasPhysicalItems
         </div>
     </div>
 </section>
-
-<script>
-document.querySelectorAll('input[name="product_payment_mode"]').forEach((radio) => {
-    radio.addEventListener('change', () => {
-        const payNow = document.getElementById('checkout-pay-now');
-        const discount = document.getElementById('checkout-discount');
-        const mode = document.querySelector('input[name="product_payment_mode"]:checked')?.value || 'online';
-        const key = mode === 'later' ? 'course' : 'all';
-        const money = new Intl.NumberFormat('vi-VN').format(Number(payNow?.dataset[key] || 0)) + 'đ';
-        const discountMoney = '-' + new Intl.NumberFormat('vi-VN').format(Number(discount?.dataset[key] || 0)) + 'đ';
-        if (payNow) payNow.textContent = money;
-        if (discount) discount.textContent = discountMoney;
-    });
-});
-</script>
 
 <?php require_once dirname(__DIR__) . '/includes/footer.php'; ?>
